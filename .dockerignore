@@ -1,0 +1,23 @@
+# Do obrazu NIE trafiają: środowiska, dane NASK, wyniki, sekrety, pamięć podręczna, zdjęcia bazy twarzy.
+.git
+.gitignore
+.venv
+venv
+**/__pycache__
+**/*.py[cod]
+.pytest_cache
+.ruff_cache
+.mypy_cache
+.cache
+*.egg-info
+.DS_Store
+.vscode
+.idea
+.env
+*.zip
+data
+workspace
+runs
+models/.tmp-*
+reference/faces/*
+!reference/faces/.gitkeep

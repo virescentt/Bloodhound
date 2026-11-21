@@ -1,0 +1,53 @@
+# Ślad Fejka — zależności (Python 3.13, CPU, bez GPU). Wersje sprawdzone 21.11.2026 (pip freeze).
+# Wyłącznie open source z licencjami permisywnymi (MIT / BSD / Apache-2.0 / ISC / MIT-CMU).
+# Opcjonalnie CLIP (podobieństwo semantyczne grafik): requirements-extra.txt
+#
+#   pip install -r requirements.txt        (robi to ./start.sh / start.bat przy pierwszym uruchomieniu)
+
+# --- Model danych, konfiguracja ---
+pydantic==2.14.4            # MIT
+PyYAML==6.0.4               # MIT
+python-dotenv==1.2.4        # BSD-3
+
+# --- Obraz: hashe percepcyjne, twarze, OCR (CPU, modele ONNX) ---
+numpy==2.5.5                # BSD-3
+pillow==13.0.0              # MIT-CMU
+ImageHash==4.3.2            # BSD-2 — pHash / dHash / wHash / colorHash
+opencv-python-headless==5.1.0.95  # Apache-2.0 — twarze: YuNet (detekcja) + SFace (embedding), python -m slad models
+rapidocr==3.10.0            # Apache-2.0 — OCR zrzutów ekranu (modele PP-OCR w paczce, bez pobierania)
+onnxruntime==1.32.0         # MIT — silnik modeli ONNX dla RapidOCR (CPU)
+
+# --- Tekst: near-duplicates, podobieństwo, LLM ---
+datasketch==2.0.0           # MIT — MinHash + LSH (niemal identyczne teksty)
+RapidFuzz==3.14.6           # MIT — dopasowanie rozmyte (osoby, marki)
+scikit-learn==1.9.1         # BSD-3 — TF-IDF, metryki grupowania (ARI / NMI)
+scipy==1.18.1               # BSD-3
+openai==3.57.0              # Apache-2.0 — klient dowolnego API zgodnego z OpenAI (model open-source, np. Ollama)
+
+# --- Infrastruktura: przekierowania, HTML, DNS, RDAP, TLS, favicon ---
+httpx==0.28.1               # BSD-3 — pobieranie stron (tylko HTML, limity rozmiaru i czasu), RDAP
+beautifulsoup4==4.15.0      # MIT — parsowanie HTML (trackery, formularze, szablon DOM)
+lxml==6.1.3                 # BSD-3 — szybki parser HTML dla BeautifulSoup
+tldextract==5.4.0           # BSD-3 — domena zarejestrowana (eTLD+1)
+idna==3.20                  # BSD-3 — domeny IDN (punycode)
+dnspython==2.9.2            # ISC — rekordy DNS (A, NS, MX)
+mmh3==5.3.1                 # MIT — hash favicony (jak w Shodanie)
+cryptography==50.0.2        # Apache-2.0 / BSD-3 — certyfikaty TLS
+
+# --- Graf, grupowanie, eksport ---
+networkx==3.7               # BSD-3 — graf powiązań, Louvain, eksport GraphML / JSON
+
+# --- Dane wejściowe (CSV / XLSX / daty) ---
+pandas==3.1.1               # BSD-3
+openpyxl==3.1.5             # MIT — pliki XLSX
+python-dateutil==4.0.0      # BSD-3 — daty w dowolnym formacie
+
+# --- CLI i interfejs ---
+typer==0.29.2               # MIT
+rich==15.0.0                # MIT
+streamlit==1.67.0           # Apache-2.0 — interfejs graficzny
+pyvis==0.3.2                # BSD-3 — interaktywny graf kampanii w UI
+
+# --- Testy i lint (pytest -q, ruff check .) ---
+pytest==9.2.0               # MIT
+ruff==0.17.6                # MIT

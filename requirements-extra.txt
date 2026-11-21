@@ -1,0 +1,15 @@
+# Opcjonalne: CLIP (open_clip) — podobieństwo semantyczne grafik („look-alike”: ten sam szablon lub scena
+# mimo innych zdjęć i tekstów). Domyślnie wyłączone (config/settings.yaml → clip.enabled: false), bo torch
+# to ≈200 MB (CPU) lub ≈2 GB (CUDA), a wagi modelu ViT-B-32 (LAION-2B, ≈600 MB) pobierają się przy
+# pierwszym użyciu. Bez tych pakietów działa wszystko poza przesłanką image_clip.
+#
+#   pip install -r requirements-extra.txt       potem w config/settings.yaml: clip.enabled: true
+#   docker compose build --build-arg WITH_CLIP=1
+#
+# Indeks PyTorch CPU: na Linuksie (np. w Dockerze) daje torch bez CUDA (wersja „+cpu”);
+# na macOS i Windows koła z PyPI i tak są CPU — indeks niczego tam nie zmienia.
+--extra-index-url https://download.pytorch.org/whl/cpu
+-r requirements.txt
+
+torch==2.15.0               # BSD-3 — wersja CPU (torchvision dobierany automatycznie przez open_clip)
+open_clip_torch==4.2.2      # MIT — modele CLIP (ViT-B-32 / laion2b_s34b_b79k)
