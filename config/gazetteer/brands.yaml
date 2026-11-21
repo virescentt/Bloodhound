@@ -1,0 +1,158 @@
+# Marki, media, banki, firmy i instytucje najczęściej podszywane w polskich reklamach oszustw (fałszywe artykuły
+# „TVN24 / Onet / Business Insider”, „inwestycje Orlen / Baltic Pipe”, „dopłata InPost / Poczta Polska”,
+# „blokada konta PKO BP”, „program rządowy gov.pl”…) — na podstawie publicznych ostrzeżeń CERT Polska / NASK.
+# SŁOWNIK DETEKCJI: wystąpienie marki oznacza podszywanie się pod nią, nie jej udział w oszustwie.
+#
+# Format:  - name: nazwa kanoniczna (wynik w TextFeatures.brands)
+#            aliases: [inne zapisy: pełna nazwa, domena, odmiana]
+#            match_name: false   (opcjonalnie) — sama nazwa nie jest dopasowywana, gdy to zwykłe słowo („Fakt”)
+# Dopasowanie jak w persons.yaml (bez wielkości liter i polskich znaków, z końcówkami: Orlenu, InPostem…).
+# WYJĄTEK: skróty z 2–3 wielkich liter (PKO, ING, ZUS, NBP…) są dopasowywane z rozróżnieniem wielkości liter,
+# żeby „ing” czy „wp” w zwykłym tekście nie dawały trafień — dlatego obok skrótu warto podać domenę lub pełną nazwę.
+
+# --- media (fałszywe artykuły i „wywiady”)
+- name: TVN24
+  aliases: [TVN 24, tvn24.pl]
+- name: TVN
+  aliases: [TVN, tvn.pl]
+- name: Onet
+  aliases: [Onet.pl, Onet Biznes, Onetu]
+- name: Interia
+  aliases: [Interia.pl]
+- name: Wirtualna Polska
+  aliases: [WP, wp.pl, Wirtualnej Polski]
+- name: Polsat News
+  aliases: [polsatnews.pl]
+- name: Polsat
+  aliases: [Telewizja Polsat]
+- name: TVP Info
+  aliases: [tvp.info, TVP Info]
+- name: TVP
+  aliases: [TVP, Telewizja Polska, tvp.pl]
+- name: Business Insider
+  aliases: [Business Insider Polska, businessinsider.com.pl]
+- name: Forbes
+  aliases: [Forbes Polska, forbes.pl]
+- name: Rzeczpospolita
+  match_name: false     # „Rzeczpospolita Polska” to nazwa państwa — tylko jednoznaczne zapisy dziennika
+  aliases: [rp.pl, dziennik Rzeczpospolita, dziennika Rzeczpospolita]
+- name: Gazeta Wyborcza
+  aliases: [wyborcza.pl]   # samo „wyborcza” = „kampania wyborcza”
+- name: Fakt
+  match_name: false     # „fakt” to zwykłe słowo
+  aliases: [Fakt24, fakt.pl, dziennik Fakt, dziennika Fakt]
+- name: Super Express
+  aliases: [Super Expressu, se.pl]
+- name: Puls Biznesu
+  aliases: [pb.pl]
+- name: Money.pl
+  aliases: [money.pl]
+- name: Bankier.pl
+  aliases: [bankier.pl]   # samo „bankier” to zwykłe słowo
+- name: Pudelek
+  match_name: false     # „pudełek” po złożeniu znaków = „pudelek”
+  aliases: [pudelek.pl]
+- name: RMF FM
+  aliases: [RMF, RMF24, rmf24.pl]
+- name: Radio ZET
+  aliases: [Radio Zet, radiozet.pl]
+
+# --- banki, finanse, nadzór
+- name: PKO BP
+  aliases: [PKO, PKO Bank Polski, PKO BP, iPKO, pkobp.pl, pko.pl]
+- name: Bank Pekao
+  aliases: [Pekao, Pekao SA, pekao.com.pl]
+- name: mBank
+  aliases: [mbank.pl]
+- name: ING
+  aliases: [ING, ING Bank Śląski, ing.pl]
+- name: Santander
+  aliases: [Santander Bank Polska, santander.pl]
+- name: Bank Millennium
+  aliases: [Millennium, bankmillennium.pl]
+- name: Alior Bank
+  aliases: [Alior, aliorbank.pl]
+- name: BNP Paribas
+  aliases: [bnpparibas.pl]
+- name: Credit Agricole
+  aliases: [Crédit Agricole]
+- name: Revolut
+  aliases: [revolut.com]
+- name: NBP
+  aliases: [NBP, Narodowy Bank Polski, Narodowego Banku Polskiego, nbp.pl]
+- name: KNF
+  aliases: [KNF, Komisja Nadzoru Finansowego, Komisji Nadzoru Finansowego, knf.gov.pl]
+- name: GPW
+  aliases: [GPW, Giełda Papierów Wartościowych, Giełdy Papierów Wartościowych, gpw.pl]
+
+# --- spółki (narracja „akcje spółek / inwestycje państwowe”)
+- name: Orlen
+  aliases: [PKN Orlen, Orlen SA, orlen.pl]
+- name: PGE
+  aliases: [PGE, Polska Grupa Energetyczna, pge.pl]
+- name: PGNiG
+  aliases: [pgnig.pl]
+- name: Baltic Pipe
+  aliases: [BalticPipe]
+- name: KGHM
+  aliases: [KGHM Polska Miedź, kghm.com]
+- name: Lotos
+  aliases: [Grupa Lotos]
+- name: PZU
+  aliases: [PZU, pzu.pl]
+- name: Tauron
+  aliases: [tauron.pl]
+- name: Energa
+  aliases: [energa.pl]
+- name: Tesla
+  aliases: [tesla.com]
+
+# --- instytucje państwowe
+- name: ZUS
+  aliases: [ZUS, Zakład Ubezpieczeń Społecznych, Zakładu Ubezpieczeń Społecznych, zus.pl]
+- name: Ministerstwo Finansów
+  aliases: [Ministerstwa Finansów, Ministerstwem Finansów, minister finansów]
+- name: gov.pl
+  aliases: [gov.pl, Serwis Rzeczypospolitej Polskiej, Profil Zaufany, mObywatel]
+- name: Krajowa Administracja Skarbowa
+  aliases: [KAS, Krajowej Administracji Skarbowej, Urząd Skarbowy, Urzędu Skarbowego, e-Urząd Skarbowy, podatki.gov.pl]
+
+# --- handel, kurierzy (dopłaty, fałszywe sklepy, „nagrody”)
+- name: Allegro
+  aliases: [allegro.pl]
+- name: OLX
+  aliases: [OLX, olx.pl]
+- name: Vinted
+  aliases: [vinted.pl]
+- name: InPost
+  aliases: [Paczkomat, Paczkomaty, Paczkomatu, inpost.pl]
+- name: Poczta Polska
+  aliases: [Poczty Polskiej, Pocztą Polską, Pocztex, poczta-polska.pl]
+- name: DHL
+  aliases: [DHL, dhl.com, DHL Parcel]
+- name: DPD
+  aliases: [DPD, dpd.com.pl]
+- name: Biedronka
+  aliases: [Biedronki, biedronka.pl]
+- name: Lidl
+  aliases: [lidl.pl]
+- name: Lotto
+  aliases: [Totalizator Sportowy, lotto.pl]
+- name: Amazon
+  aliases: [amazon.com, amazon.pl]
+- name: Netflix
+  aliases: [netflix.com]
+- name: Apple
+  aliases: [iPhone, apple.com]
+
+# --- platformy internetowe i kryptowaluty
+- name: Meta (Facebook)
+  aliases: [Facebook, Meta Platforms, Facebooka, Facebooku]
+- name: Google
+  aliases: [google.com]
+- name: Binance
+  aliases: [binance.com]
+- name: Coinbase
+  aliases: [coinbase.com]
+- name: Bitcoin
+  aliases: [BTC]

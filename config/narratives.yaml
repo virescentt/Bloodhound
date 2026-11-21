@@ -1,0 +1,155 @@
+# Narracje typowe dla polskich reklam oszustw (scam) — reguły dla cech tekstowych (slad/features/text.py).
+# Na podstawie publicznych ostrzeżeń CERT Polska / NASK (Lista Ostrzeżeń, komunikaty o fałszywych reklamach
+# z wizerunkami znanych osób) i obserwowanych schematów kampanii 2023–2026.
+#
+# Format:
+#   tag:                 identyfikator (snake_case, bez polskich znaków) — wartość w TextFeatures.narratives
+#     label_pl:          opis do interfejsu
+#     keywords:          rdzenie słów / krótkie frazy, dopasowywane OD POCZĄTKU WYRAZU („inwestyc” trafia
+#                        „inwestycja”, „Inwestycję”, „inwestycyjny”); mogą zawierać wyrażenia regularne
+#                        (np. 'kont(?:o|a|em)\b' — dokładne słowo); tylko grupy nieprzechwytujące (?:…)
+#     patterns:          wyrażenia regularne (Python) na całym tekście
+#     min_hits:          próg (domyślnie 2): słowo kluczowe = 1 punkt, wzorzec = 2 punkty
+# Dopasowanie bez rozróżniania wielkości liter i polskich znaków (tekst i reguły są „składane”: ą→a, ł→l…).
+# Materiał może mieć kilka narracji (zapisujemy maks. 4 najsilniejsze). Ta sama lista tagów ogranicza odpowiedzi
+# LLM (slad/features/llm.py) — dodanie tagu tutaj automatycznie udostępnia go modelowi.
+
+falszywy_wywiad:
+  label_pl: Fałszywy wywiad / artykuł ze znaną osobą
+  keywords: [wywiad, "w rozmowie z", ujawni, zdradzi, wyzna, dziennikarz, prowadząc, redakcj, ekskluzywn,
+             "tajemnic", "sekret", "w studio", "czytaj dalej", "transmisj", "nagrani", "wypowiedź", "materiał"]
+  patterns:
+    - '(?:w|podczas|po)\s+(?:wywiadzie|wywiadu|rozmowie|programie|programu|audycji)\s+(?:z|na|w|dla)\b'
+    - 'ujawni\w*\s+(?:\w+\s+)?(?:swoj\w*|sekret\w*|tajemnic\w*|jak|sposob\w*|zrodl\w*|ile)'
+    - '(?:wpadk\w*|skandal\w*|incydent\w*)\s+(?:na\s+(?:wizji|antenie|zywo)|w\s+studio)'
+    - '(?:bank\w*|rzad\w*|elit\w*|nbp)\s+(?:\w+\s+)?(?:sa\s+)?(?:wsciekl\w*|w\s+szoku|chc\w*\s+(?:to\s+)?(?:zablokowa|ukry|zakaza)\w*|probowal\w*\s+(?:to\s+)?(?:zablokowa|ukry|zatrzyma)\w*)'
+  min_hits: 2
+
+inwestycja_krypto:
+  label_pl: Inwestycja w kryptowaluty
+  keywords: [bitcoin, kryptowalut, krypto, crypto, 'btc\b', ethereum, blockchain, 'usdt\b', altcoin, 'token(?:y|ow|ach)?\b',
+             "kopani", "portfel kryptowalut", "giełd kryptowalut", trading]
+  patterns:
+    - '(?:inwest\w*|zarab\w*|zarob\w*|zysk\w*|pomnoz\w*)\W+(?:\w+\W+){0,4}?(?:w\s+)?(?:bitcoin\w*|kryptowalut\w*|krypto\w*|btc|ethereum)'
+    - '(?:bitcoin\w*|kryptowalut\w*)\W+(?:\w+\W+){0,4}?(?:zysk\w*|zarob\w*|zarab\w*|inwest\w*)'
+  min_hits: 2
+
+akcje_spolek:
+  label_pl: Akcje polskich spółek (Orlen, PGE, Baltic Pipe…)
+  keywords: ['akcj(?:e|i|ach|ami|om)\b', spółk, "skarbu państwa", dywidend, udziałow, 'gpw\b', "giełd papierów", orlen,
+             'pge\b', pgnig, "baltic pipe", kghm, lotos, 'pzu\b', tauron, energa, 'enea\b', gazociąg, "gaz-system", surowc]
+  patterns:
+    - 'inwest\w*\s+(?:\w+\s+)?w\s+(?:akcj\w*|spolk\w*|orlen\w*|pge|pgnig|kghm|baltic|lotos\w*|pzu|gaz\w*|rop\w*|energ\w*)'
+    - '(?:akcj\w*|udzial\w*)\s+(?:\w+\s+)?(?:spolk\w*|orlen\w*|pge|kghm|pgnig|lotos\w*|pzu|baltic\w*|gpw|panstwow\w*)'
+    - 'baltic\s+pipe'
+  min_hits: 3
+
+program_rzadowy:
+  label_pl: Program rządowy / dopłata od państwa
+  keywords: [rządow, ministerstw, 'minist(?:er|ra|rem)\b', premier, państwow, dotacj, świadczeni, 'zus\b', 'gov\.pl',
+             dofinansowan, rekompensat, "zwrot podatku", 'bon(?:y|u|ow|em)?\b', wsparci, 'rzad(?:u|owi|em|zie)?\b', obywatel]
+  patterns:
+    - 'program\w*\s+(?:\w+\s+)?(?:rzadow\w*|panstwow\w*|wsparcia|dla\s+polakow|dla\s+obywateli|dla\s+seniorow)'
+    - '(?:rzad|ministerstwo\s+\w+|panstwo|premier|prezydent|zus)\s+(?:\w+\s+)?(?:wyplac|przekaz|daje|da\b|oferuj|rozdaj|zwrac|uruchomi)\w*'
+    - '(?<!\d)\d{3}\s?\+(?!\d)'
+    - 'kazdy\s+(?:polak|obywatel|dorosl\w*|emeryt\w*)\s+(?:\w+\s+)?(?:moze|otrzyma|dostanie|ma\s+prawo)'
+  min_hits: 3
+
+bot_ai:
+  label_pl: Bot / sztuczna inteligencja do inwestowania
+  keywords: [algorytm, automatyczn, 'robot(?:a|em|y|ow)?\b', 'bot(?:a|em|y|ow)?\b', chatgpt, openai, quantum,
+             "uczeni maszynow", "sieci neuronow", "handel automatyczn"]
+  patterns:
+    - '\b(?:ai\b|a\.i\.)'
+    - 'sztuczn\w*\s+inteligencj\w*'
+    - '(?:bot\w{0,3}|robot\w*)\s+(?:\w+\s+)?(?:inwest\w*|tradingow\w*|handlow\w*|ai|gieldow\w*)'
+    - '(?:handl\w*|inwest\w*|trad\w*)\s+(?:\w+\s+)?automatyczn\w*|automatyczn\w*\s+(?:\w+\s+)?(?:handl\w*|inwest\w*|trad\w*)'
+  min_hits: 3
+
+skandal_celebryty:
+  label_pl: Skandal / sensacja ze znaną osobą (clickbait)
+  keywords: [skandal, 'szok', tragedi, śmierć, zmarł, pożegnani, dramat, 'łzy\b', wstrząsając, 'afer(?:a|y|ze|e)\b',
+             aresztowan, "rozwód", zdrad, "nie do wiary", niewiarygodn, sensacj, przerażając, kompromitacj, ocenzurowan,
+             "usunięt"]
+  patterns:
+    - 'nie\s+zyje\b'
+    - 'cala\s+polska\s+(?:jest\s+)?(?:w\s+szoku|placze|mowi|zyje)'
+    - 'koniec\s+kariery'
+    - '(?:zostal\w*|zostala)\s+(?:aresztowan|zatrzyman)\w*'
+    - '(?:ostatni\w*|smutn\w*|pozegnaln\w*)\s+(?:wywiad|pozegnani|wpis|slow)\w*'
+  min_hits: 2
+
+nagroda_loteria:
+  label_pl: Nagroda / loteria / darmowy prezent
+  keywords: [nagrod, wygrał, wygran, loteri, konkurs, losowani, gratulacj, zwycięzc, darmow, 'prezent(?:u|y|ow|em|ami)?\b',
+             rozdani, giveaway, voucher, kupon, iphone, "kart podarunkow", "za darmo", bezpłatn]
+  patterns:
+    - '(?:wygral\w*|wygrywasz|zostal\w*\s+(?:wybran\w*|wylosowan\w*))'
+    - 'odbierz\s+(?:swoj\w*\s+)?(?:nagrod\w*|prezent\w*|bon\w*|voucher\w*|iphone\w*|darmow\w*)'
+    - '(?:rozdaj\w*|rozdajemy)\s+(?:\d+\s+)?(?:bon\w*|prezent\w*|iphone\w*|nagrod\w*|samochod\w*|kart\w*|paczk\w*)'
+  min_hits: 2
+
+doplata_paczka:
+  label_pl: Dopłata do przesyłki / fałszywy kurier
+  keywords: [paczk, przesyłk, kurier, dopłat, inpost, 'dpd\b', 'dhl\b', "poczta polska", paczkomat, "numer przesyłki",
+             'cl[ao]\b', 'celn', śledzeni, "adres dostawy", awizo, 'gls\b']
+  patterns:
+    - '(?:paczk\w*|przesylk\w*)\s+(?:\w+\s+){0,2}(?:wstrzyman\w*|zatrzyman\w*|oczekuj\w*|nie\s+moze\s+zostac\s+dostarczon\w*)'
+    - 'doplat\w*\s+(?:\w+\s+){0,2}(?:przesylk\w*|paczk\w*|dostaw\w*)'
+    - 'oplat\w*\s+(?:za\s+)?(?:dostaw\w*|przesylk\w*|cl[ao]\b|celn\w*|magazynow\w*)'
+    - '(?:zaktualizuj|potwierdz|uzupelnij|popraw)\s+(?:\w+\s+)?(?:adres|dane)\s+(?:\w+\s+)?dostaw\w*'
+  min_hits: 3
+
+cudowny_lek:
+  label_pl: Cudowny lek / suplement
+  keywords: ['lek(?:i|u|iem|ow|ami)?\b', kuracj, cukrzyc, nadciśnieni, stawów, odchudz, schudn, kilogram, suplement,
+             kapsułk, tabletk, lekarz, profesor, doktor, wylecz, cudown, prostat, pasożyt, 'wzrok', 'słuch(?:u|em)?\b',
+             aptek, farmac, cholesterol, żylak, łuszczyc, grzybic, potencj, odmładz, zmarszcz]
+  patterns:
+    - '(?:schud\w*|stracil\w*|zrzucil\w*|zgubil\w*)\s+(?:az\s+)?\d+\s*(?:kg|kilo\w*)'
+    - '(?:lekarz\w*|farmaceu\w*|koncern\w*\s+farmaceut\w*)\s+(?:\w+\s+)?(?:sa\s+)?(?:w\s+szoku|ukrywa\w*|wsciek\w*|milcz\w*)'
+    - '(?:pozbyc\s+sie|wyleczy\w*|wyleczyl\w*|zapomnij\s+o)\s+(?:\w+\s+){0,2}(?:cukrzyc\w*|nadcisnien\w*|bol\w*|chorob\w*|pasozyt\w*|stawow|zylak\w*|cellulit\w*)'
+  min_hits: 3
+
+falszywy_sklep:
+  label_pl: Fałszywy sklep / okazja cenowa
+  keywords: [sklep, promocj, wyprzedaż, rabat, zniżk, taniej, likwidacj, "ostatnie sztuki", "darmowa dostawa", 'zamów\b',
+             okazj, outlet, "black friday", "kod rabatowy", przecen, "tylko dziś", "pobraniem"]
+  patterns:
+    - '-\s?\d{2}\s?%'
+    - '\d{2}\s?%\s*(?:taniej|rabatu|znizki|off)'
+    - 'likwidacj\w*\s+(?:sklepu|magazynu|firmy|kolekcji)'
+    - '(?:tylko|ostatnie|zostalo)\s+(?:\w+\s+)?\d+\s+(?:sztuk|szt|par|zestaw)\w*'
+    - '(?:darmow\w*|bezplatn\w*)\s+(?:dostaw\w*|wysylk\w*)'
+    - 'platnosc\s+(?:przy\s+odbiorze|za\s+pobraniem)'
+  min_hits: 3
+
+alert_bankowy:
+  label_pl: Alert bankowy / blokada konta / wyłudzenie danych logowania
+  keywords: ['bank(?:i|u|owi|iem|ow\w*)?\b', 'kont(?:o|a|u|em)\b', rachunk, blokad, zablokowan, weryfikacj, logowani,
+             hasł, 'pin\b', blik, 'kart(?:a|y|e|ę)\b', podejrzan, transakcj, autoryzacj, "dane logowania",
+             bezpieczeństw, nieautoryzowan, zawieszon, "aplikacj mobiln"]
+  patterns:
+    - '(?:konto|rachunek|karta|dostep|aplikacja)\s+(?:\w+\s+){0,2}(?:zostal\w*\s+|zostanie\s+)?(?:zablokowan\w*|zawieszon\w*|ograniczon\w*)'
+    - 'podejrzan\w*\s+(?:transakcj\w*|logowani\w*|aktywnosc\w*|operacj\w*|przelew\w*)'
+    - '(?:potwierdz|zweryfikuj|zaktualizuj)\s+(?:\w+\s+){0,2}(?:dane|tozsamosc|konto|haslo|numer\s+karty)'
+  min_hits: 3
+
+praca_zdalna:
+  label_pl: Praca zdalna / łatwy zarobek z domu (zadania, lajki)
+  keywords: ['prac(?:a|y|e|ę)\b', zdaln, "z domu", "dodatkowy zarobek", rekrutacj, zadani, lajk, polubie, "oceniaj",
+             wynagrodzeni, "elastyczn", "kilka godzin", "w wolnym czasie"]
+  patterns:
+    - '(?:praca|pracuj\w*|zarabiaj\w*|zarob\w*)\s+(?:\w+\s+){0,2}(?:zdaln\w*|z\s+domu|przez\s+(?:telefon|internet))'
+    - '(?:lajkowa\w*|polubie\w*|ocenia\w*|ogladani\w*)\s+(?:\w+\s+){0,2}(?:film\w*|post\w*|produkt\w*|filmik\w*|opini\w*)'
+    - '(?:bez|nie\s+wymaga\w*)\s+(?:\w+\s+)?doswiadczeni\w*'
+  min_hits: 3
+
+odzyskanie_srodkow:
+  label_pl: Odzyskanie utraconych pieniędzy (oszustwo „na odzyskanie”)
+  keywords: [odzysk, oszukan, utracon, "stracone pieniądze", kancelari, prawnik, windykacj, reklamacj, chargeback, "zwrot środków"]
+  patterns:
+    - 'odzyska\w*\s+(?:\w+\s+){0,2}(?:pieniadz\w*|srodk\w*|utracon\w*|stracon\w*|wplat\w*)'
+    - '(?:padl\w*|padles|padlas)\s+ofiar\w*\s+(?:oszust\w*|inwestycj\w*)'
+    - '(?:stracil\w*|straciles|stracilas)\s+(?:\w+\s+){0,2}(?:na\s+)?(?:inwestycj\w*|kryptowalut\w*|forex\w*|gieldzie)'
+  min_hits: 2

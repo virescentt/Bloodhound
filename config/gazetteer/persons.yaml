@@ -1,0 +1,94 @@
+# Osoby publiczne, których wizerunek i nazwisko najczęściej wykorzystują polskie reklamy oszustw
+# (fałszywe artykuły i „wywiady”, deepfake wideo, „programy rządowe”) — na podstawie publicznych ostrzeżeń
+# CERT Polska / NASK i doniesień medialnych 2023–2026.
+# SŁOWNIK DETEKCJI: obecność nazwiska w materiale oznacza PODSZYWANIE SIĘ pod tę osobę, nie jej udział w oszustwie.
+#
+# Format:  - name: nazwa kanoniczna (wynik w TextFeatures.persons)
+#            aliases: [inne zapisy: samo nazwisko, wersja bez polskich znaków, nietypowa odmiana, funkcja]
+# Dopasowanie (slad/features/text.py): bez rozróżniania wielkości liter i polskich znaków, na granicach słów,
+# z typowymi końcówkami fleksyjnymi (Lewandowskiego, Brzoską, Tuska, Ibiszem…); aliasy wielowyrazowe tolerują
+# drobne błędy OCR. Samo nazwisko jest aliasem tylko wtedy, gdy jest jednoznaczne (nie „Duda”, „Prokop”, „Pazura”).
+# Wyniki LLM są sprowadzane do tych nazw kanonicznych.
+
+- name: Robert Lewandowski
+  aliases: [Lewandowski, Robert Lewandowski, R. Lewandowski]
+- name: Anna Lewandowska
+  aliases: [Lewandowska, Ania Lewandowska, Anna Lewandowska]
+- name: Rafał Brzoska
+  aliases: [Brzoska, Brzoski, Brzosce, Brzoskę, Rafal Brzoska, prezes InPost, prezes InPostu, szef InPostu]
+- name: Omenaa Mensah
+  aliases: [Mensah, Omena Mensah, Omenaa Mensah-Brzoska]
+- name: Krzysztof Ibisz
+  aliases: [Ibisz, Krzysztof Ibisz]
+- name: Monika Olejnik
+  aliases: [Olejnik, Monika Olejnik]
+- name: Dawid Podsiadło
+  aliases: [Podsiadło, Podsiadlo, Dawid Podsiadlo]
+- name: Kuba Wojewódzki
+  aliases: [Wojewódzki, Wojewodzki, Jakub Wojewódzki, Kuba Wojewodzki]
+- name: Martyna Wojciechowska
+  aliases: [Wojciechowska, Martyna Wojciechowska]
+- name: Iga Świątek
+  aliases: [Iga Swiatek, Igi Świątek, Igą Świątek, Świątek]
+- name: Michał Sołowow
+  aliases: [Sołowow, Solowow, Michal Solowow]
+- name: Dominika Kulczyk
+  aliases: [Kulczyk, Dominika Kulczyk]
+- name: Jerzy Owsiak
+  aliases: [Owsiak, Jurek Owsiak]
+- name: Andrzej Duda
+  aliases: [Andrzej Duda, prezydent Duda, prezydenta Dudy, prezydentem Dudą]
+- name: Karol Nawrocki
+  aliases: [Karol Nawrocki, prezydent Nawrocki]
+- name: Donald Tusk
+  aliases: [Tusk, Donald Tusk, premier Tusk]
+- name: Mateusz Morawiecki
+  aliases: [Morawiecki, Mateusz Morawiecki]
+- name: Rafał Trzaskowski
+  aliases: [Trzaskowski, Rafal Trzaskowski]
+- name: Szymon Hołownia
+  aliases: [Hołownia, Holownia, Szymon Holownia]
+- name: Sławomir Mentzen
+  aliases: [Mentzen, Slawomir Mentzen]
+- name: Jarosław Kaczyński
+  aliases: [Kaczyński, Kaczynski, Jaroslaw Kaczynski, prezes Kaczyński]
+- name: Adam Glapiński
+  aliases: [Glapiński, Glapinski, prezes NBP, Adam Glapinski]
+- name: Andrzej Domański
+  aliases: [Andrzej Domański, Andrzej Domanski, minister Domański]
+- name: Elon Musk
+  aliases: [Musk, Elon Musk]
+- name: Mark Zuckerberg
+  aliases: [Zuckerberg, Mark Zuckerberg]
+- name: Bill Gates
+  aliases: [Bill Gates]
+- name: Warren Buffett
+  aliases: [Buffett, Warren Buffet]
+- name: Magda Gessler
+  aliases: [Gessler, Magdalena Gessler]
+- name: Małgorzata Rozenek-Majdan
+  aliases: [Rozenek, Małgorzata Rozenek, Gosia Rozenek, Rozenek-Majdan]
+- name: Ewa Chodakowska
+  aliases: [Chodakowska, Ewa Chodakowska]
+- name: Edyta Górniak
+  aliases: [Górniak, Gorniak, Edyta Gorniak]
+- name: Marcin Prokop
+  aliases: [Marcin Prokop]
+- name: Dorota Wellman
+  aliases: [Wellman, Dorota Wellman]
+- name: Piotr Kraśko
+  aliases: [Kraśko, Krasko, Piotr Krasko]
+- name: Kinga Rusin
+  aliases: [Kinga Rusin]
+- name: Szymon Majewski
+  aliases: [Szymon Majewski]
+- name: Cezary Pazura
+  aliases: [Cezary Pazura, Czarek Pazura]
+- name: Wojciech Szczęsny
+  aliases: [Szczęsny, Szczesny, Wojciech Szczesny]
+- name: Krzysztof Stanowski
+  aliases: [Stanowski, Krzysztof Stanowski]
+- name: Leszek Czarnecki
+  aliases: [Leszek Czarnecki]
+- name: Zygmunt Solorz
+  aliases: [Solorz, Zygmunt Solorz-Żak, Solorz-Żak]
