@@ -1,0 +1,329 @@
+# Ślad Fejka — listy wyjątków: wartości wskaźników ZBYT CZĘSTE, by świadczyły o wspólnej kampanii.
+#
+# Moduł powiązań (slad/link) usuwa je z przesłanek albo mocno osłabia. Dwa materiały, które ładują jQuery
+# z jsDelivr, stoją za Cloudflare albo mają certyfikat Let's Encrypt, NIE są przez to powiązane — to tło
+# internetu, nie ślad operatora. Ważenie rzadkością (link.rarity) obniża wagę wartości częstych w zbiorze;
+# te listy działają także wtedy, gdy zbiór jest mały i statystyki częstości nic jeszcze nie mówią.
+#
+# Zasady dopasowania (małe litery, bez spacji na końcach):
+#   domains              — domena lub host: równość albo subdomena (cdn.jsdelivr.net pasuje do jsdelivr.net).
+#                          Dotyczy domen łańcucha, skryptów, linków wychodzących i formularzy. Skracacze linków
+#                          (bit.ly, t.co…) są tu, bo nie są śladem operatora — moduł infrastruktury i tak przechodzi
+#                          przez nie do strony docelowej.
+#   asns                 — numer systemu autonomicznego (porównuj sam numer „AS13335”, bez nazwy).
+#   nameserver_patterns  — wzorce fnmatch nazw serwerów DNS (np. „*.ns.cloudflare.com”, „*.awsdns-*”).
+#   registrars           — fragment nazwy rejestratora (dopasowanie po podciągu). Sam rejestrator nie jest
+#                          przesłanką; razem z bliską datą rejestracji (±3 dni) — co najwyżej słabą.
+#   tls_issuers          — fragment nazwy wystawcy certyfikatu. Wystawca sam w sobie NIGDY nie jest przesłanką
+#                          (przesłanką jest odcisk certyfikatu albo wspólne nazwy SAN).
+#   form_fields          — standardowe nazwy pól formularzy (imię, e-mail, telefon…). Przesłanką jest dopiero
+#                          nietypowy zestaw pól albo pola ukryte z identyfikatorem oferty/strumienia.
+# Uwaga: identyfikatory „tracker:keitaro”, „tracker:binom” itp. w tracker_ids oznaczają RODZAJ oprogramowania
+# trackera kliknięć (wiele kampanii go używa), a nie identyfikator operatora — należy traktować je jak słabą przesłankę.
+
+domains:
+  # Google
+  - google.com
+  - googleapis.com
+  - gstatic.com
+  - googletagmanager.com
+  - google-analytics.com
+  - googlesyndication.com
+  - googleadservices.com
+  - doubleclick.net
+  - googleusercontent.com
+  - ggpht.com
+  - youtube.com
+  - youtu.be
+  - ytimg.com
+  - recaptcha.net
+  # Meta
+  - facebook.com
+  - facebook.net
+  - fbcdn.net
+  - fb.com
+  - fb.me
+  - instagram.com
+  - cdninstagram.com
+  - messenger.com
+  - whatsapp.com
+  - whatsapp.net
+  - wa.me
+  - threads.net
+  # inne platformy społecznościowe i komunikatory
+  - t.me
+  - telegram.org
+  - telegram.me
+  - twitter.com
+  - x.com
+  - twimg.com
+  - tiktok.com
+  - tiktokcdn.com
+  - ttwstatic.com
+  - linkedin.com
+  - licdn.com
+  - pinterest.com
+  - snapchat.com
+  - reddit.com
+  - vk.com
+  - ok.ru
+  - discord.com
+  - discord.gg
+  - viber.com
+  # Yandex, Microsoft, Apple, Amazon
+  - yandex.ru
+  - yandex.net
+  - yandex.com
+  - microsoft.com
+  - live.com
+  - outlook.com
+  - bing.com
+  - msn.com
+  - clarity.ms
+  - apple.com
+  - icloud.com
+  - amazon.com
+  - amazonaws.com
+  - cloudfront.net
+  # CDN, biblioteki, czcionki
+  - cloudflare.com
+  - cdnjs.cloudflare.com
+  - cloudflareinsights.com
+  - jsdelivr.net
+  - unpkg.com
+  - jquery.com
+  - bootstrapcdn.com
+  - fontawesome.com
+  - fonts.googleapis.com
+  - typekit.net
+  - akamaihd.net
+  - akamaized.net
+  - fastly.net
+  - polyfill.io
+  # CMS i hosting treści
+  - wp.com
+  - wordpress.org
+  - wordpress.com
+  - w.org
+  - gravatar.com
+  - wix.com
+  - wixstatic.com
+  - parastorage.com
+  - squarespace.com
+  - shopify.com
+  - tilda.ws
+  - tildacdn.com
+  # standardy i odnośniki ogólne
+  - schema.org
+  - w3.org
+  - ogp.me
+  - wikipedia.org
+  - github.com
+  # narzędzia analityczne i czaty (wspólne dla milionów stron; identyfikatory konta są w tracker_ids)
+  - hotjar.com
+  - tawk.to
+  - jivosite.com
+  - livechatinc.com
+  - onesignal.com
+  # skracacze linków
+  - t.co
+  - bit.ly
+  - tinyurl.com
+  - goo.gl
+  - ow.ly
+  - is.gd
+  - buff.ly
+  - cutt.ly
+  - rebrand.ly
+  - shorturl.at
+  - lnkd.in
+  - linktr.ee
+
+asns:
+  - AS13335   # Cloudflare
+  - AS209242  # Cloudflare (Spectrum)
+  - AS15169   # Google
+  - AS396982  # Google Cloud
+  - AS19527   # Google
+  - AS16509   # Amazon (AWS)
+  - AS14618   # Amazon
+  - AS8075    # Microsoft
+  - AS8068    # Microsoft
+  - AS54113   # Fastly
+  - AS20940   # Akamai
+  - AS16625   # Akamai
+  - AS32934   # Facebook / Meta
+  - AS13414   # Twitter / X
+  - AS36459   # GitHub
+  - AS14061   # DigitalOcean
+  - AS24940   # Hetzner
+  - AS16276   # OVH
+  - AS63949   # Akamai Connected Cloud (Linode)
+  - AS20473   # Vultr (Choopa)
+  - AS51167   # Contabo
+  - AS47583   # Hostinger
+  - AS22612   # Namecheap
+  - AS26496   # GoDaddy
+  - AS398101  # GoDaddy
+  - AS58182   # Wix
+  - AS53831   # Squarespace
+  - AS12824   # home.pl
+  - AS15967   # nazwa.pl
+
+nameserver_patterns:
+  - "*.ns.cloudflare.com"
+  - "*.cloudflare.com"
+  - "*.awsdns-*"
+  - "*.googledomains.com"
+  - "ns-cloud-*.googledomains.com"
+  - "*.domaincontrol.com"          # GoDaddy
+  - "*.registrar-servers.com"      # Namecheap
+  - "*.dnsowl.com"                 # NameSilo
+  - "*.dns-parking.com"            # Hostinger
+  - "*.hostinger.com"
+  - "*.ovh.net"
+  - "*.ovh.ca"
+  - "*.azure-dns.com"
+  - "*.azure-dns.net"
+  - "*.azure-dns.org"
+  - "*.azure-dns.info"
+  - "*.nsone.net"
+  - "*.digitalocean.com"
+  - "*.linode.com"
+  - "*.your-server.de"             # Hetzner
+  - "*.hetzner.com"
+  - "*.vercel-dns.com"
+  - "*.netlify.com"
+  - "*.wixdns.net"
+  - "*.squarespacedns.com"
+  - "*.name-services.com"          # Enom
+  - "*.cloudns.net"
+  - "*.dnspod.net"
+  - "*.hichina.com"                # Alibaba
+  - "*.yandex.net"
+  - "*.home.pl"
+  - "*.nazwa.pl"
+  - "*.cyberfolks.pl"
+  - "*.sedoparking.com"            # parkingi domen
+  - "*.parkingcrew.net"
+  - "*.bodis.com"
+  - "*.above.com"
+  - "*.afternic.com"
+
+registrars:
+  - GoDaddy
+  - Namecheap
+  - NameSilo
+  - Hostinger
+  - OVH
+  - Tucows
+  - Network Solutions
+  - eNom
+  - PDR
+  - Public Domain Registry
+  - Dynadot
+  - Porkbun
+  - Squarespace
+  - Google
+  - Cloudflare
+  - Amazon
+  - Alibaba
+  - HiChina
+  - GMO
+  - Key-Systems
+  - IONOS
+  - 1&1
+  - Gandi
+  - MarkMonitor
+  - CSC Corporate Domains
+  - Wix
+  - Web.com
+  - Register.com
+  - NameBright
+  - Spaceship
+  - Regery
+  - R01
+  - REG.RU
+  - home.pl
+  - nazwa.pl
+  - cyber_Folks
+  - Aftermarket
+  - Domeny.tv
+  - Instra
+
+tls_issuers:
+  - Let's Encrypt
+  - Google Trust Services
+  - Cloudflare
+  - ZeroSSL
+  - Sectigo
+  - COMODO
+  - DigiCert
+  - GeoTrust
+  - RapidSSL
+  - Thawte
+  - GlobalSign
+  - GoDaddy
+  - Starfield
+  - Amazon
+  - Microsoft
+  - cPanel
+  - Buypass
+  - SSL.com
+  - Entrust
+  - Certum
+  - Actalis
+  - TrustAsia
+  - Encryption Everywhere
+
+form_fields:
+  - name
+  - fullname
+  - full_name
+  - first_name
+  - firstname
+  - fname
+  - last_name
+  - lastname
+  - lname
+  - surname
+  - imie
+  - imię
+  - nazwisko
+  - email
+  - e-mail
+  - mail
+  - phone
+  - phone_number
+  - phonenumber
+  - tel
+  - telephone
+  - telefon
+  - nr_telefonu
+  - mobile
+  - country
+  - country_code
+  - city
+  - message
+  - wiadomosc
+  - comment
+  - subject
+  - password
+  - submit
+  - search
+  - s
+  - q
+  - agree
+  - terms
+  - consent
+  - zgoda
+  - rodo
+  - newsletter
+  - lang
+  - language
+  - csrf
+  - _token
+  - csrfmiddlewaretoken
+  - g-recaptcha-response
+  - h-captcha-response
+  - cf-turnstile-response

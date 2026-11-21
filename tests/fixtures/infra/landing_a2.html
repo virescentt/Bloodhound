@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Szokujące: Anna Nowak odkryła sposób na 7000 zł tygodniowo</title>
+  <meta name="description" content="Popularna aktorka opowiada o programie, który pomnożył jej oszczędności.">
+  <link rel="icon" type="image/png" href="/assets/i/fav.png">
+  <link rel="apple-touch-icon" href="/assets/i/apple.png">
+  <link rel="stylesheet" href="/assets/css/app.css">
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-ZZZZ987654"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-ZZZZ987654');
+  </script>
+  <script>
+  !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+  n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;
+  n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;
+  t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,
+  document,'script','https://connect.facebook.net/en_US/fbevents.js');
+  fbq('init', '123456789012345');
+  fbq('track', 'PageView');
+  </script>
+</head>
+<body>
+  <header class="site-header">
+    <div class="container">
+      <a class="logo" href="/"><img src="/assets/i/logo.png" alt="FaktyDnia"></a>
+      <nav class="menu">
+        <ul>
+          <li><a href="/polska">Polska</a></li>
+          <li><a href="/zagranica">Zagranica</a></li>
+          <li><a href="/pieniadze">Pieniądze</a></li>
+          <li><a href="https://www.interia.pl/">Partner</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+  <main class="container">
+    <article class="post">
+      <h1 class="post-title">Anna Nowak: „Dzięki temu programowi nie muszę już pracować”</h1>
+      <div class="post-meta"><span class="author">Dział gospodarczy</span> <time datetime="2026-11-18">18 listopada 2026</time></div>
+      <img class="post-image" src="/assets/i/nowak.jpg" alt="Anna Nowak na planie">
+      <p>Aktorka przyznała w programie śniadaniowym, że od pół roku korzysta z inteligentnego robota inwestycyjnego.</p>
+      <p>Według niej minimalna wpłata to tylko 800 zł, a pierwsze zyski pojawiają się po kilku godzinach.</p>
+      <blockquote><p>„To najprostszy sposób na dodatkowe pieniądze, jaki znam” — mówi Nowak.</p></blockquote>
+      <h2>Co mówią inwestorzy</h2>
+      <ul class="testimonials">
+        <li><img src="/assets/i/p1.jpg" alt=""><p><b>Tomasz z Wrocławia:</b> Zarobiłem na nowy samochód.</p></li>
+        <li><img src="/assets/i/p2.jpg" alt=""><p><b>Krystyna z Lublina:</b> Wreszcie mam spokojną emeryturę.</p></li>
+        <li><img src="/assets/i/p3.jpg" alt=""><p><b>Piotr z Łodzi:</b> Działa nawet bez doświadczenia.</p></li>
+        <li><img src="/assets/i/p4.jpg" alt=""><p><b>Zofia z Opola:</b> Wypłata przyszła następnego dnia.</p></li>
+      </ul>
+      <section class="lead">
+        <h2>Dołącz dzisiaj — oferta ważna do północy</h2>
+        <form class="lead-form" method="post" action="https://crm.leadhub-api.com/api/lead.php">
+          <div class="row"><label>Imię</label><input type="text" name="first_name" required></div>
+          <div class="row"><label>Nazwisko</label><input type="text" name="last_name" required></div>
+          <div class="row"><label>E-mail</label><input type="email" name="email" required></div>
+          <div class="row"><label>Telefon</label><input type="tel" name="phone" required></div>
+          <input type="hidden" name="offer_id" value="OF-7781">
+          <input type="hidden" name="flow_hash" value="fl_31cd">
+          <input type="hidden" name="subid" value="{subid}">
+          <input type="hidden" name="utm_campaign" value="fb_pl_2">
+          <button type="submit" class="btn">Chcę zarabiać</button>
+        </form>
+      </section>
+    </article>
+  </main>
+  <footer class="site-footer">
+    <div class="container">
+      <p>Kontakt: <a href="mailto:biuro@faktydnia-news.example">biuro@faktydnia-news.example</a>,
+         <a href="tel:+48700222333">+48 700 222 333</a>,
+         <a href="https://wa.me/48700222333">WhatsApp</a></p>
+      <p><a href="/regulamin">Regulamin</a> · <a href="https://t.me/fakty_inwestycje">Telegram</a></p>
+    </div>
+  </footer>
+  <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+  <script>
+    $('.lead-form').on('submit', function (e) {
+      e.preventDefault();
+      $.ajax({ url: '/api/register', type: 'POST', data: $(this).serialize() });
+    });
+  </script>
+</body>
+</html>
