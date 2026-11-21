@@ -536,6 +536,10 @@ def _domain_stopped(dom: str, stop: Stoplists) -> bool:
     if dom in stop.domains or dom in stop.shorteners or dom in stop.hosting:
         return True
     reg = registered_domain(dom)
+    if reg and reg != dom and reg in stop.hosting:
+        # witryna na współdzielonym hostingu / kreatorze stron (oszustwo.wordpress.com, promo.tilda.ws) to osobna
+        # witryna operatora — sama platforma bywa na liście wyjątków, jej strony użytkowników nie
+        return False
     return bool(reg) and (reg in stop.domains or reg in stop.shorteners)
 
 

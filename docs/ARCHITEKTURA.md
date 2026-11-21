@@ -143,6 +143,13 @@ wagi i progi wymagają potwierdzenia na nich (rozdz. „Kalibracja na danych NAS
    `--no-llm` (heurystyki: słowniki, heurystyka osób, reguły narracji). LLM zalecany do analizy pojedynczego
    materiału albo z hostowanym endpointem (`.env`: `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL`); wyniki są w cache.
 
+7. **Zgłoszenia z przeglądu modułów, poprawione przy integracji:** (a) ten sam plik pustego / jednolitego obrazu
+   (zaślepka, pusty zrzut — bez pHash) w dwóch materiałach nie jest już przesłanką „identyczny plik graficzny”
+   (wcześniej waga 5.0 omijała ochronę pustych obrazów i rzadkość); (b) witryny na kreatorach stron z listy wyjątków
+   (`oszustwo.wordpress.com`, `promo.tilda.ws`) nie są traktowane jak sama platforma — zachowują domenę jako
+   przesłankę i cechy strony (trackery, IP, TLS); (c) panel pokazuje miniatury i ramki twarzy z orientacją z EXIF
+   (zdjęcia z telefonu), zgodnie z układem współrzędnych detekcji.
+
 ### Wyniki końcowe (offline, bez LLM)
 
 | Zbiór / test | Wynik |

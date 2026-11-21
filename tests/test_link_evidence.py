@@ -589,3 +589,34 @@ def test_channel_similarity_sparse_path_matches_dense(monkeypatch):
     got = sparse.segment_sims(sparse.prep["full"], sparse.prep["shot"])
     assert got[1:] == expected[1:] and got[0] == pytest.approx(expected[0], abs=1e-5)
     assert expected[2] == (0, 1)  # wejście pełnego rekordu ↔ OCR zrzutu
+
+
+def test_identical_blank_placeholder_image_does_not_link():
+    # ten sam plik zaślepki (pusty / jednolity obraz: bez pHash) w dwóch niezależnych materiałach — brak przesłanki
+    blank = ImageFeatures(
+        path="/tmp/blank.png", sha256="same-placeholder", width=600, height=400, phash="", dhash="", whash="",
+        colorhash="",
+    )  # fmt: skip
+    a = make("a", AD, images=[blank])
+    b = make("b", OTHER, images=[blank.model_copy()])
+    ps = score_pair(a, b, ctx_for(a, b, filler=10))
+    assert not [e for e in ps.evidence if e.kind == "image_phash"]
+    assert ps.relation is None
+    # ten sam plik z treścią (pHash obecny) nadal jest przesłanką „identyczny plik graficzny”
+    c = make("c", OTHER, images=[image("8f3a5c7e9b1d2f40", sha="same-creative")])
+    d = make("d", OTHER, images=[image("8f3a5c7e9b1d2f40", sha="same-creative")])
+    img = [e for e in score_pair(c, d, ctx_for(c, d, filler=10)).evidence if e.kind == "image_phash"]
+    assert img and "identyczny plik" in img[0].detail
+
+
+def test_scam_site_on_free_website_builder_keeps_its_own_identity():
+    # strony użytkowników kreatorów (wordpress.com, tilda.ws) są osobnymi witrynami, choć sama platforma jest wyjątkiem
+    a = make("a", AD, final_url="https://zysk-teraz.wordpress.com/start", domains=["zysk-teraz.wordpress.com"])
+    b = make("b", OTHER, final_url="https://zysk-teraz.wordpress.com/rejestracja", domains=["zysk-teraz.wordpress.com"])
+    c = make("c", OTHER, final_url="https://inna-strona.wordpress.com/", domains=["inna-strona.wordpress.com"])
+    assert "zysk-teraz.wordpress.com" in indicators(a).get("domain", set())
+    assert not page_is_generic(a)  # strona na kreatorze to nie „platforma” — jej cechy (trackery, IP…) się liczą
+    ctx = ctx_for(a, b, c, filler=10)
+    lk = compare(a, b, ctx)
+    assert lk is not None and any(e.kind == "domain" for e in lk.evidence)
+    assert compare(a, c, ctx) is None  # dwie różne witryny na tym samym kreatorze — brak powiązania

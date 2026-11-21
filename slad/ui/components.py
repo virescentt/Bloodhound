@@ -606,11 +606,11 @@ def first_image(m: Material | None, fs: FeatureSet | None = None) -> Path | None
 def thumbnail_bytes(path: str | Path, max_side: int = 360) -> bytes | None:
     """Miniatura PNG/JPEG obrazu; nieczytelny plik → None."""
     try:
-        from PIL import Image
+        from PIL import Image, ImageOps
 
         with Image.open(path) as im:
             im.draft("RGB", (max_side, max_side))
-            im = im.convert("RGB")
+            im = ImageOps.exif_transpose(im).convert("RGB")  # zdjęcia z telefonu: orientacja z EXIF
             im.thumbnail((max_side, max_side))
             buf = io.BytesIO()
             im.save(buf, format="JPEG", quality=85)
@@ -623,10 +623,10 @@ def thumbnail_bytes(path: str | Path, max_side: int = 360) -> bytes | None:
 def faces_overlay(path: str | Path, faces: Sequence[Any], max_side: int = 640) -> bytes | None:
     """Obraz z zaznaczonymi twarzami (ramka + tożsamość), PNG; brak obrazu → None."""
     try:
-        from PIL import Image, ImageDraw
+        from PIL import Image, ImageDraw, ImageOps
 
-        with Image.open(path) as im0:
-            im = im0.convert("RGB")
+        with Image.open(path) as im0:  # ramki twarzy są w układzie obrazu po obrocie z EXIF (jak w detekcji)
+            im = ImageOps.exif_transpose(im0).convert("RGB")
         w, h = im.size
         scale = min(1.0, max_side / max(w, h)) if max(w, h) else 1.0
         if scale < 1.0:

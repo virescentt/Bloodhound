@@ -1040,6 +1040,8 @@ def _image_items(pa: Prepared, pb: Prepared, ctx: LinkContext, content: _Content
     for ka, (pha, dha, shaa, _) in enumerate(pa.images):
         for kb, (phb, dhb, shab, _) in enumerate(pb.images):
             if shaa and shaa == shab:
+                if pha is None:  # pusty / jednolity obraz (zaślepka, pusty zrzut) — ten sam plik nic nie mówi
+                    continue
                 cand = (0, True, ka, kb, 0)
             elif pha is not None and phb is not None:
                 dd = (dha ^ dhb).bit_count() if (dha is not None and dhb is not None) else None
