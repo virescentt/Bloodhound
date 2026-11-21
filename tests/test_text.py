@@ -20,6 +20,7 @@ from slad.features.text import (  # noqa: E402
     detect_lang,
     extract_keywords,
     find_cta,
+    find_person_names,
     find_product,
     find_promise,
     fold,
@@ -445,3 +446,42 @@ def test_ocr_real_engine(ctx, tmp_path):
     assert next(i for i, ln in enumerate(lines) if "PLATFORMA" in ln) < next(
         i for i, ln in enumerate(lines) if "5000" in ln
     )
+
+
+# ------------------------------------------------------------------ osoby spoza słownika (imię + nazwisko)
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("Marek Zawadzki: „Bitcoin to przyszłość”", ["Marek Zawadzki"]),
+        ("Wywiad z Markiem Zawadzkim: każdy może zacząć", ["Marek Zawadzki"]),
+        ("Sekret Marka Zawadzkiego ujawniony", ["Marek Zawadzki"]),
+        ("Dr Barbara Zielińska: schudłam 12 kg", ["Barbara Zielińska"]),
+        ("rozmowa z dr Barbarą Zielińską", ["Barbara Zielińska"]),
+        ("prof. Andrzej Kalinowski poleca", ["Andrzej Kalinowski"]),
+        ("zdaniem Joanny Wierzbickiej", ["Joanna Wierzbicka"]),
+        ("Adamem Wroną i Adama Wrony", ["Adam Wrona"]),
+        ("Ewa Nowicka i Katarzyna Malinowska", ["Ewa Nowicka", "Katarzyna Malinowska"]),
+        ("Jerzego Owsiaka apel", ["Jerzy Owsiak"]),
+    ],
+)
+def test_person_names_outside_gazetteer_in_nominative(text, expected):
+    assert find_person_names(text) == expected
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["Jan Paweł II", "Piotr i Paweł", "Nowa Platforma Inwestycyjna Bitcoin", "marek zawadzki (małe litery)", ""],
+)
+def test_person_names_ignore_non_names(text):
+    assert find_person_names(text) == []
+
+
+def test_text_features_add_ad_persons_but_not_landing_page_testimonials(ctx):
+    m = material("Wywiad z Markiem Zawadzkim i Robertem Lewandowskim: zarabiaj 5000 zł dziennie!")
+    tf = text_features(m, [], "Opinie: Katarzyna Malinowska — wypłaciłam 3000 zł w tydzień!", ctx)
+    assert "Robert Lewandowski" in tf.persons  # słownik (odmiana → nazwa kanoniczna)
+    assert "Marek Zawadzki" in tf.persons  # heurystyka imię + nazwisko
+    assert tf.persons.count("Robert Lewandowski") == 1
+    assert "Katarzyna Malinowska" not in tf.persons  # „opinia” ze strony docelowej to nie osoba z reklamy

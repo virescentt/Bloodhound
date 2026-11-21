@@ -1,0 +1,23 @@
+# Popularne polskie imiona (mianownik) — heurystyka „imię + nazwisko” dla osób SPOZA słownika persons.yaml
+# (slad/features/text.py: find_person_names). Szuka wyłącznie w treści reklamy (tekst wejścia + OCR),
+# nie na stronie docelowej (fałszywe „opinie klientów” to nie podszywanie się pod osobę publiczną).
+# Formy odmiany (Marka, Markiem, Joanny, Joanną…) i nazwiska przymiotnikowe (Zawadzkiego → Zawadzki)
+# są sprowadzane do mianownika regułami. Imiona dwuznaczne (Maja, Róża, Wiktoria…) celowo pominięte.
+
+male: [
+  Adam, Adrian, Aleksander, Andrzej, Antoni, Arkadiusz, Artur, Bartłomiej, Bartosz, Błażej, Bogdan, Bogusław,
+  Cezary, Czesław, Damian, Daniel, Dariusz, Dawid, Dominik, Edward, Emil, Eryk, Filip, Franciszek, Grzegorz,
+  Henryk, Hubert, Igor, Ireneusz, Jacek, Jakub, Jan, Janusz, Jarosław, Jerzy, Józef, Julian, Kacper, Kamil,
+  Karol, Kazimierz, Konrad, Krystian, Krzysztof, Kuba, Leszek, Łukasz, Maciej, Marcin, Marek, Marian, Mariusz,
+  Mateusz, Michał, Mieczysław, Mikołaj, Miłosz, Mirosław, Norbert, Oskar, Patryk, Paweł, Piotr, Przemysław,
+  Radosław, Rafał, Robert, Roman, Ryszard, Sebastian, Sławomir, Stanisław, Stefan, Szymon, Tadeusz, Tomasz,
+  Waldemar, Wiesław, Wiktor, Witold, Władysław, Wojciech, Zbigniew, Zdzisław, Zygmunt,
+]
+
+female: [
+  Agata, Agnieszka, Aleksandra, Alicja, Aneta, Angelika, Anna, Barbara, Beata, Bożena, Danuta, Dominika, Dorota,
+  Edyta, Elżbieta, Emilia, Ewa, Ewelina, Gabriela, Grażyna, Halina, Hanna, Helena, Irena, Iwona, Izabela,
+  Jadwiga, Janina, Joanna, Jolanta, Julia, Justyna, Karolina, Katarzyna, Kinga, Klaudia, Krystyna, Magdalena,
+  Małgorzata, Maria, Marta, Martyna, Marzena, Monika, Natalia, Olga, Oliwia, Paulina, Renata, Sylwia, Teresa,
+  Urszula, Wanda, Weronika, Zofia, Zuzanna,
+]

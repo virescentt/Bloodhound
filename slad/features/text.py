@@ -274,6 +274,129 @@ def match_gazetteer(entries: Sequence[GazEntry], folded: str, cased_text: str = 
     return [name for _, name in sorted(found)]
 
 
+# ------------------------------------------------------------------ osoby spoza słownika (imię + nazwisko)
+
+MAX_HEURISTIC_PERSONS = 3
+_CAP_WORD = r"[A-ZĄĆĘŁŃÓŚŹŻ][a-ząćęłńóśźż]{2,}(?:-[A-ZĄĆĘŁŃÓŚŹŻ][a-ząćęłńóśźż]{2,})?"
+# dopasowania nakładające się (lookahead): odrzucona para „Dr Barbara” nie przesłania pary „Barbara Zielińska”
+_NAME_RX = re.compile(rf"(?<!\w)(?=(?P<first>[A-ZĄĆĘŁŃÓŚŹŻ][a-ząćęłńóśźż]+)\s+(?P<last>{_CAP_WORD})(?!\w))")
+# odmiana nazwisk przymiotnikowych i rzeczownikowych → mianownik (wg przypadka imienia)
+_SURNAME_RULES = {
+    "gen_m": (
+        ("skiego", "ski"),
+        ("ckiego", "cki"),
+        ("dzkiego", "dzki"),
+        ("iego", "i"),
+        ("ego", "y"),
+        ("y", "a"),
+        ("a", ""),
+    ),
+    "ins_m": (("skim", "ski"), ("ckim", "cki"), ("dzkim", "dzki"), ("ym", "y"), ("ą", "a"), ("iem", ""), ("em", "")),
+    "dat_m": (("skiemu", "ski"), ("ckiemu", "cki"), ("dzkiemu", "dzki"), ("owi", "")),
+    "gen_f": (("skiej", "ska"), ("ckiej", "cka"), ("dzkiej", "dzka"), ("ej", "a"), ("y", "a")),
+    "acc_f": (("ską", "ska"), ("cką", "cka"), ("dzką", "dzka"), ("ę", "a")),
+    "ins_f": (("ską", "ska"), ("cką", "cka"), ("dzką", "dzka"), ("ą", "a")),
+}
+
+
+def _male_stem(name: str) -> str:
+    """Temat odmiany imienia męskiego: Marek → Mark, Paweł → Pawł, Jacek → Jack, Piotr → Piotr."""
+    if name.endswith("ek") and len(name) > 3:
+        return name[:-2] + "k"
+    if name.endswith("eł"):
+        return name[:-2] + "ł"
+    return name
+
+
+@lru_cache(maxsize=1)
+def _first_name_forms() -> dict[str, tuple[str, str]]:
+    """Forma imienia → (mianownik, przypadek): „Markiem” → („Marek”, „ins_m”), „Joanny” → („Joanna”, „gen_f”)."""
+    path = GAZETTEER_DIR / "first_names.yaml"
+    try:
+        data = yaml.load(path.read_text(encoding="utf-8"), Loader=_YAML_LOADER) or {}
+    except (OSError, yaml.YAMLError) as e:
+        log.warning("Słownik imion %s nieczytelny: %s", path, e)
+        return {}
+    forms: dict[str, tuple[str, str]] = {}
+    for name in data.get("male") or []:
+        name = str(name).strip()
+        if not name:
+            continue
+        forms[name] = (name, "nom")
+        if name.endswith("a"):  # Kuba → Kuby, Kubą
+            forms[name[:-1] + "y"] = (name, "gen_m")
+            forms[name[:-1] + "ą"] = (name, "ins_m")
+            continue
+        if name.endswith(("i", "y")):  # Antoni → Antoniego, Jerzy → Jerzego
+            base = name[:-1] if name.endswith("y") else name
+            forms[base + "ego"] = (name, "gen_m")
+            forms[base + "m"] = (name, "ins_m")
+            forms[base + "emu"] = (name, "dat_m")
+            continue
+        stem = _male_stem(name)
+        soft = stem.endswith(("k", "g"))
+        forms[stem + "a"] = (name, "gen_m")
+        forms[stem + ("iem" if soft else "em")] = (name, "ins_m")
+        forms[stem + "owi"] = (name, "dat_m")
+    for name in data.get("female") or []:
+        name = str(name).strip()
+        if not name.endswith("a"):
+            continue
+        forms.setdefault(name, (name, "nom"))
+        stem = name[:-1]
+        forms.setdefault(stem + ("i" if stem.endswith(("k", "g", "i")) else "y"), (name, "gen_f"))
+        forms.setdefault(stem + "ę", (name, "acc_f"))
+        forms.setdefault(stem + "ą", (name, "ins_f"))
+    return forms
+
+
+def _surname_nominative(last: str, case: str) -> str:
+    for suffix, repl in _SURNAME_RULES.get(case, ()):
+        if last.endswith(suffix) and len(last) - len(suffix) >= 3:
+            return last[: len(last) - len(suffix)] + repl
+    return last
+
+
+def find_person_names(text: str) -> list[str]:
+    """Osoby spoza słownika: „imię + nazwisko” w mianowniku (tytuły dr / prof. pomijane).
+
+    Imię musi być w słowniku imion (config/gazetteer/first_names.yaml, także formy odmiany: „Markiem
+    Zawadzkim” → „Marek Zawadzki”); nazwisko — wyraz wielką literą, który sam nie jest imieniem."""
+    forms = _first_name_forms()
+    if not text or not forms:
+        return []
+    out: list[str] = []
+    seen: set[str] = set()
+    for m in _NAME_RX.finditer(text):
+        hit = forms.get(m.group("first"))
+        last = m.group("last")
+        if hit is None or last in forms:
+            continue
+        first, case = hit
+        name = f"{first} {_surname_nominative(last, case)}"  # bez tytułu (dr / prof.) — jeden klucz osoby
+        key = fold(name)
+        if key not in seen:
+            seen.add(key)
+            out.append(name)
+        if len(out) >= MAX_HEURISTIC_PERSONS:
+            break
+    return out
+
+
+def _merge_heuristic_persons(current: list[str], extra: Sequence[str], entries: Sequence[GazEntry] = ()) -> list[str]:
+    """Dołącza osoby z heurystyki: nazwa ze słownika, gdy pasuje (np. „Roberta Lewandowskiego”), bez powtórzeń."""
+    out = list(current)
+    keys = {fold(p) for p in out}
+    for name in extra:
+        canon = canonical_name(name, entries) if entries else None
+        name = canon or name
+        key = fold(name)
+        if key and key not in keys:
+            keys.add(key)
+            out.append(name)
+    return out
+
+
 def canonical_name(name: str, entries: Sequence[GazEntry] | str) -> str | None:
     """Nazwa ze słownika dla dowolnego zapisu („rafal brzoska”, „Brzoską”, „PKO Bank Polski”) albo None."""
     db = load_gazetteer(entries) if isinstance(entries, str) else entries
@@ -695,6 +818,10 @@ def text_features(material: Material, ocr_texts: Iterable[str] | None, page_text
     tf.lang = _safe("język", None, detect_lang, tf.text)
     tf.keywords = _safe("słowa kluczowe", [], extract_keywords, tf.text, int(getattr(tcfg, "keywords", 12)))
     tf.persons = _safe("osoby", [], match_gazetteer, persons, gz_folded, gz_cased, ocr_folded)
+    # osoby spoza słownika — tylko z treści reklamy (wejście + OCR), nie z „opinii” na stronie docelowej
+    ad_text = _base_clean("\n".join(p for p in (input_text, ocr_text) if p)[:MAX_INPUT_PART])
+    found = _safe("osoby (imię + nazwisko)", [], find_person_names, ad_text)
+    tf.persons = _safe("osoby (scalenie)", tf.persons, _merge_heuristic_persons, tf.persons, found, persons)
     tf.brands = _safe("marki", [], match_gazetteer, brands, gz_folded, gz_cased, ocr_folded)
     tf.narratives = _safe("narracje", [], match_narratives, folded)
     tf.promise = _safe("obietnica", None, find_promise, display)
