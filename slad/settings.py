@@ -25,8 +25,7 @@ class NetworkSettings(BaseModel):
     max_bytes: int = 3_000_000
     max_redirects: int = 10
     user_agent: str = (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/130.0 Safari/537.36"
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36"
     )
     dns: bool = True
     rdap: bool = True

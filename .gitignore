@@ -1,6 +1,8 @@
 # Dane organizatora (NASK) — zakaz publicznego rozpowszechniania
 data/
 *.zip
+# Pliki pochodne zapisywane przez ingest obok zbioru (obrazy z XLSX, HTML z MHTML, data: URI)
+.slad_extracted/
 
 # Python
 __pycache__/
@@ -14,11 +16,15 @@ __pycache__/
 # Wyniki i pamięć podręczna (mogą zawierać materiały NASK)
 workspace/
 runs/
+.cache/
 # Modele pobierane skryptem (python -m slad models)
 models/*.onnx
 models/*.pt
-# Baza referencyjna twarzy — zdjęcia tylko lokalnie
+models/.tmp-*
+# Baza referencyjna twarzy — zdjęcia i embeddingi tylko lokalnie
 reference/faces/*/
+reference/faces/.gallery_cache.json
+.streamlit/secrets.toml
 .pytest_cache/
 .ruff_cache/
 *.egg-info/

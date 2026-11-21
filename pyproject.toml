@@ -10,8 +10,10 @@ target-version = "py313"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP"]
-ignore = ["E501"]
+# UP042: enumy (str, Enum) w slad/models.py to kontrakt — StrEnum zmieniłby str()/format() wartości
+ignore = ["E501", "UP042"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]
 addopts = "-q"

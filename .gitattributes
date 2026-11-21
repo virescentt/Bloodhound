@@ -1,0 +1,3 @@
+# Skrypty startowe: Windows wymaga CRLF, powłoki uniksowe LF
+*.bat text eol=crlf
+*.sh text eol=lf

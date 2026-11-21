@@ -42,7 +42,8 @@ class Material(BaseModel):
     advertiser: str | None = None  # nazwa profilu / reklamodawcy, jeśli znana
     observed_at: datetime | None = None
     label: str | None = None  # etykieta kampanii — TYLKO ewaluacja, nigdy cecha
-    meta: dict[str, Any] = Field(default_factory=dict)  # surowe pola rekordu; meta["infra"] = gotowe dane infrastruktury
+    # surowe pola rekordu; meta["infra"] = gotowe dane infrastruktury
+    meta: dict[str, Any] = Field(default_factory=dict)
 
 
 # ---------------------------------------------------------------- cechy
