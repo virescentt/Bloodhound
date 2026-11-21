@@ -10,3 +10,15 @@ __pycache__/
 
 # System
 .DS_Store
+
+# Wyniki i pamięć podręczna (mogą zawierać materiały NASK)
+workspace/
+runs/
+# Modele pobierane skryptem (python -m slad models)
+models/*.onnx
+models/*.pt
+# Baza referencyjna twarzy — zdjęcia tylko lokalnie
+reference/faces/*/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/

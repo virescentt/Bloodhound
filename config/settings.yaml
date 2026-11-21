@@ -1,0 +1,89 @@
+# Ślad Fejka — konfiguracja. Opis metody i uzasadnienie wag: docs/METODYKA.md
+# Zmienne z .env (LLM_BASE_URL, LLM_API_KEY, LLM_MODEL, LLM_EXTRA_BODY, SLAD_OFFLINE, SLAD_WORKSPACE) nadpisują wartości.
+
+data_root: data
+workspace: workspace/default
+workers: 4
+
+network:
+  enabled: true          # false = tryb offline (tylko dane wejściowe, meta.infra i cache)
+  timeout_s: 8
+  max_bytes: 3000000
+  max_redirects: 10
+  dns: true
+  rdap: true
+  tls: true
+  favicon: true
+  crtsh: false           # Certificate Transparency — wolne, włączać ręcznie
+  cache_ttl_h: 72
+
+ocr:
+  enabled: true
+  max_side: 2000
+
+llm:
+  enabled: true          # bez klucza w .env działają heurystyki
+  timeout_s: 60
+  max_chars: 4000
+
+faces:
+  enabled: true
+  detector_model: models/face_detection_yunet_2023mar.onnx
+  recognizer_model: models/face_recognition_sface_2021dec.onnx
+  gallery_dir: reference/faces
+  min_face_score: 0.8
+  match_threshold: 0.363
+
+clip:
+  enabled: false         # wymaga requirements-extra.txt
+
+text:
+  minhash_perm: 128
+  shingle: 3
+  keywords: 12
+
+link:
+  # Wagi przesłanek ≈ log-iloraz szans „ta sama kampania”. Wskaźniki dzielone przez wiele materiałów
+  # są osłabiane (rarity). Wartości wstępne — kalibracja na zbiorze NASK (docs/METODYKA.md).
+  weights:
+    # infrastruktura — wskaźniki silne (praktycznie unikalne dla operatora kampanii)
+    tracker_id: 6.0      # Google Analytics / GTM / Facebook Pixel / Yandex Metrica / TikTok
+    crypto_wallet: 7.0
+    phone: 6.0
+    email: 6.0
+    telegram: 5.0
+    whatsapp: 5.0
+    tls_fingerprint: 5.0
+    domain: 5.0
+    favicon: 4.0
+    form_action: 4.0
+    host: 3.0
+    dom_simhash: 3.0     # ten sam szablon strony
+    ip: 2.5
+    title: 2.0
+    registrar_created: 1.5   # ten sam rejestrator i data rejestracji ±3 dni
+    nameserver: 1.5
+    asn: 0.5
+    # treść
+    text_minhash: 5.0    # niemal identyczny tekst
+    text_tfidf: 3.0      # podobna treść
+    keyword: 0.5
+    # obraz i osoby
+    image_phash: 5.0     # ta sama / przerobiona grafika
+    image_clip: 3.0
+    face: 4.0            # ta sama twarz
+    person: 2.0          # ta sama osoba (nazwisko / tożsamość z bazy)
+    brand: 1.0
+    narrative: 1.0
+  rarity: true
+  thresholds:
+    duplicate: 12.0
+    variant: 7.0
+    related: 4.0
+  cluster:
+    method: graph
+    resolution: 1.0
+    min_size: 2
+  assign:
+    min_score: 4.0
+    top_k: 10
