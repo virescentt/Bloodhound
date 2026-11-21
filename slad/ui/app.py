@@ -226,6 +226,11 @@ def _offline(cfg: Settings) -> Settings:
     return cfg.model_copy(update={"network": cfg.network.model_copy(update={"enabled": False})})
 
 
+def _no_llm(cfg: Settings) -> Settings:
+    """Przetwarzanie wsadowe bez LLM: lokalny model to ~13 s na materiał, heurystyki — ułamki sekundy."""
+    return cfg.model_copy(update={"llm": cfg.llm.model_copy(update={"enabled": False})})
+
+
 # ---------------------------------------------------------------- wspólne elementy widoków
 
 
@@ -516,12 +521,19 @@ def _processing_panel(cfg: Settings, root: Path, expanded: bool) -> None:
             offline = st.checkbox(
                 "Bez sieci (tylko dane wejściowe i pamięć podręczna)", value=not cfg.network.enabled, key="proc_offline"
             )
+            use_llm = st.checkbox(
+                "LLM do cech tekstowych (wolniej — lokalny model ok. 13 s na materiał)",
+                value=False,
+                key="proc_llm",
+                disabled=not cfg.llm.enabled,
+            )
             if st.button("Przetwórz", type="primary", key="proc_run", icon=":material/play_arrow:"):
-                _run_processing(Path(path).expanduser(), root, cfg, offline)
+                _run_processing(Path(path).expanduser(), root, cfg if use_llm else _no_llm(cfg), offline)
         with right:
             st.markdown("**Zbiór syntetyczny (demo)**")
             st.caption(
-                "Syntetyczne reklamy z etykietami kampanii — pokaz i ewaluacja bez danych NASK; przetwarzany bez sieci."
+                "Syntetyczne reklamy z etykietami kampanii — pokaz i ewaluacja bez danych NASK; przetwarzany bez sieci "
+                "i bez LLM (kilkanaście sekund)."
             )
             c1, c2, c3 = st.columns(3)
             seed = c1.number_input("Ziarno", min_value=0, max_value=100_000, value=7, key="syn_seed")
@@ -541,7 +553,7 @@ def _processing_panel(cfg: Settings, root: Path, expanded: bool) -> None:
                     log.exception("Generowanie zbioru syntetycznego")
                     st.error(f"Generowanie nie powiodło się: {e}")
                     return
-                _run_processing(Path(ds or out_dir), root, cfg, offline=True)
+                _run_processing(Path(ds or out_dir), root, _no_llm(cfg), offline=True)
 
 
 def _relation_bar(k: dict[str, int]) -> None:
@@ -1248,11 +1260,14 @@ def page_methodology() -> None:
             text = doc.read_text(encoding="utf-8")
         except OSError:
             text = None
+    body = ""
     if text:
         lines = text.lstrip().splitlines()
         if lines and lines[0].startswith("# "):
             lines = lines[1:]
-        st.markdown("\n".join(lines))
+        body = "\n".join(lines).strip()
+    if len(body) >= 200:  # szkic dokumentu (sam nagłówek) → opis wbudowany
+        st.markdown(body)
     else:
         st.markdown(C.BUILTIN_METHODOLOGY)
         st.caption("Pełny opis metody: docs/METODYKA.md.")

@@ -51,16 +51,25 @@ link:
     crypto_wallet: 7.0
     phone: 6.0
     email: 6.0
+    iban: 6.0
     telegram: 5.0
     whatsapp: 5.0
     tls_fingerprint: 5.0
-    domain: 5.0
+    domain: 5.0          # domena docelowa (landing)
+    short_url: 5.0       # ten sam skrócony link (bit.ly/…)
+    cert_domain: 4.0     # domena z tego samego certyfikatu TLS / CT
+    # infrastruktura — wskaźniki średnie (potrzebują potwierdzenia: przesłanka silna albo 2 różne średnie)
     favicon: 4.0
     form_action: 4.0
     host: 3.0
+    redirect_domain: 3.0 # domena pośrednia przekierowań (cloaker / TDS / skracacz)
+    script_domain: 3.0   # skrypty z tej samej niepublicznej domeny
+    form_offer: 3.0      # ukryte pole formularza z identyfikatorem oferty / strumienia CPA
     dom_simhash: 3.0     # ten sam szablon strony
     ip: 2.5
     title: 2.0
+    form_fields: 2.0     # nietypowy zestaw pól formularza
+    # przesłanki miękkie (same nigdy nie łączą materiałów)
     registrar_created: 1.5   # ten sam rejestrator i data rejestracji ±3 dni
     nameserver: 1.5
     asn: 0.5

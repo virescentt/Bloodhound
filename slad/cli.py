@@ -365,12 +365,19 @@ def demo(
         Path | None, typer.Option("--data", help="Katalog na zbiór syntetyczny (domyślnie data/synthetic).")
     ] = None,
     seed: Annotated[int, typer.Option("--seed", help="Ziarno zbioru syntetycznego.")] = 7,
-    no_llm: NoLlmOpt = False,
+    llm: Annotated[
+        bool,
+        typer.Option(
+            "--llm/--no-llm",
+            help="LLM do cech tekstowych. W demo domyślnie wyłączony: lokalny model to ~13 s na materiał "
+            "(73 materiały ≈ 16 min), heurystyki — 10 s na cały zbiór.",
+        ),
+    ] = False,
     no_faces: NoFacesOpt = False,
     open_ui: Annotated[bool, typer.Option("--ui", help="Na koniec uruchom interfejs.")] = False,
 ) -> None:
     """Demonstracja end-to-end bez danych NASK: zbiór syntetyczny → przetwarzanie offline → ewaluacja."""
-    cfg = _settings(workspace or ROOT / "workspace" / "demo", offline=True, no_llm=no_llm, no_faces=no_faces)
+    cfg = _settings(workspace or ROOT / "workspace" / "demo", offline=True, no_llm=not llm, no_faces=no_faces)
     ws = _workspace(cfg)
     data_dir = data.expanduser().resolve() if data else ROOT / "data" / "synthetic"
 
