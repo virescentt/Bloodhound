@@ -1,0 +1,19 @@
+# Ślad Fejka — konfiguracja interfejsu Streamlit (czytana z katalogu, z którego uruchamiamy `streamlit run`).
+
+[theme]
+base = "light"
+primaryColor = "#2a78d6"
+backgroundColor = "#ffffff"
+secondaryBackgroundColor = "#f4f3ef"
+textColor = "#0b0b0b"
+
+[server]
+# zrzuty ekranu i zapisane strony w „Analizie nowego materiału” (MB)
+maxUploadSize = 25
+
+[browser]
+# bez telemetrii — narzędzie może pracować na materiałach NASK, także offline
+gatherUsageStats = false
+
+[client]
+toolbarMode = "minimal"
