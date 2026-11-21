@@ -4,7 +4,9 @@
 
 Zadanie konkursowe NASK **„Kolekcjoner Fejków — Follow the Fake”**, HackNation 2026 (Bydgoszcz, 21–22.11.2026). Zespół **zschie**.
 
-> Status: **w budowie** — repozytorium robocze; demonstrator powstaje w trakcie hackathonu.
+> Status: **działający demonstrator end-to-end** (wczytanie → cechy → powiązania z przesłankami → kampanie → panel,
+> analiza nowego materiału, eksport Neo4j, Docker). Sprawdzony na syntetycznym zbiorze z etykietami; kalibracja
+> wag na przykładowym zbiorze NASK — gdy tylko trafi do `data/nask/`.
 
 ## Problem
 
@@ -28,14 +30,66 @@ materiał: URL reklamy/strony · zrzut ekranu · rekord ze zbioru NASK
 - **Niekompletne dane** (martwa domena, brak metadanych, część materiału) obniżają pewność, ale nie blokują analizy.
 - OCR i ekstrakcję cech przez LLM ze schematem JSON przenosimy z naszego drugiego projektu (Odwołania2JSON, UZP).
 
+## Szybki start
+
+Wymagania: Python 3.13 (CPU, bez GPU) albo Docker. Pierwsze uruchomienie skryptu tworzy `.venv`, instaluje
+zależności (`requirements.txt`) i pobiera modele twarzy (≈ 40 MB, `python -m slad models`).
+
+```bash
+./start.sh demo                            # zbiór syntetyczny → przetwarzanie offline → ewaluacja (≈ 30 s)
+./start.sh ui --workspace workspace/demo   # panel: http://localhost:8501
+```
+
+Windows: `start.bat demo`, `start.bat ui --workspace workspace/demo`. Docker:
+
+```bash
+docker compose up --build app                          # panel: http://localhost:8501
+docker compose run --rm demo                           # demo w kontenerze → ./workspace/demo
+SLAD_WORKSPACE=workspace/demo docker compose up app    # panel z wynikami demo
+DATASET=data/nask docker compose run --rm pipeline     # przetworzenie zbioru z ./data
+```
+
+### Praca ze zbiorem (np. NASK w `data/nask/`)
+
+```bash
+python -m slad ingest data/nask --show     # jak rozpoznano format, kolumny, obrazy (bez ekstrakcji cech)
+python -m slad run data/nask               # cechy (z siecią; --offline bez niej) → powiązania → kampanie
+python -m slad campaigns                   # kampanie w terminalu (python -m slad campaigns K001 — szczegóły)
+python -m slad analyze zrzut.png           # nowy materiał: URL / zrzut ekranu / zapisany HTML / "tekst"
+python -m slad export --format neo4j       # Neo4j (CSV + import.cypher), także graphml / json / all
+python -m slad eval                        # metryki, gdy zbiór ma etykiety kampanii
+python -m slad ui                          # panel webowy
+```
+
+(`python` = `.venv/bin/python` albo `./start.sh <komenda>`.) Wszystkie komendy: `python -m slad --help`.
+
+### Konfiguracja
+
+- `config/settings.yaml` — wagi przesłanek, progi relacji i przypisania, sieć, OCR, twarze; `python -m slad link`
+  przelicza powiązania po zmianie wag bez ponownej ekstrakcji cech.
+- `.env` (kopia `.env.example`) — opcjonalny LLM zgodny z API OpenAI (`LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL`;
+  np. lokalna Ollama), `SLAD_OFFLINE=1`, `SLAD_WORKSPACE`. Bez LLM działają heurystyki.
+- `reference/faces/<Imię_Nazwisko>/*.jpg` — opcjonalna baza twarzy osób, pod które podszywają się reklamy (tylko lokalnie).
+- `config/stoplists.yaml`, `config/narratives.yaml`, `config/gazetteer/` — listy wyjątków, reguły narracji, słowniki osób i marek.
+
+### Dokumentacja
+
+- [docs/METODYKA.md](docs/METODYKA.md) — pozyskiwanie cech, podobieństwo, grupowanie, przypisanie, ewaluacja.
+- [docs/ARCHITEKTURA.md](docs/ARCHITEKTURA.md) — moduły i kontrakty, katalog roboczy, decyzje i kalibracja.
+- [docs/team/ROADMAP_RU.md](docs/team/ROADMAP_RU.md) — co zrobione, co zostało (dla zespołu).
+
+Testy: `.venv/bin/pytest -q` (bez sieci), styl: `.venv/bin/ruff check .`.
+
 ## Plan do niedzieli (22.11, 11:00)
 
-- [ ] wczytanie przykładowego zbioru NASK i model danych materiału
-- [ ] ekstrakcja cech: treść (OCR + LLM), obraz, infrastruktura
-- [ ] miara podobieństwa i grupowanie w kampanie
-- [ ] panel webowy (Streamlit / Gradio) z grafem kampanii i przesłankami powiązań
-- [ ] opis metodyki (`docs/METODYKA.md`)
-- [ ] Docker + instrukcja instalacji i uruchomienia
+- [x] wczytanie zbiorów w dowolnym formacie i model danych materiału
+- [x] ekstrakcja cech: treść (OCR + heurystyki / LLM), obraz (hashe, twarze), infrastruktura (przekierowania, HTML, DNS, RDAP, TLS)
+- [x] miara podobieństwa z przesłankami i grupowanie w kampanie, przypisanie nowego materiału
+- [x] panel webowy (Streamlit) z grafem kampanii i przesłankami powiązań
+- [x] opis metodyki (`docs/METODYKA.md`)
+- [x] Docker + instrukcja instalacji i uruchomienia
+- [ ] wczytanie przykładowego zbioru NASK, kalibracja wag, raport jakości
+- [ ] prezentacja / wideo dla jury
 
 ## Wymagania NASK (checklista zgłoszenia)
 
