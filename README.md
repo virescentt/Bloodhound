@@ -73,7 +73,6 @@ python -m slad ui                          # panel webowy
 
 - [docs/METODYKA.md](docs/METODYKA.md) — pozyskiwanie cech, podobieństwo, grupowanie, przypisanie, ewaluacja.
 - [docs/ARCHITEKTURA.md](docs/ARCHITEKTURA.md) — moduły i kontrakty, katalog roboczy, decyzje i kalibracja.
-- [docs/team/ROADMAP_RU.md](docs/team/ROADMAP_RU.md) — co zrobione, co zostało (dla zespołu).
 
 Testy: `.venv/bin/pytest -q` (bez sieci), styl: `.venv/bin/ruff check .`.
 
