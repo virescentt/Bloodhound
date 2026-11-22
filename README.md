@@ -4,9 +4,7 @@
 
 Zadanie konkursowe NASK **„Kolekcjoner Fejków — Follow the Fake”**, HackNation 2026 (Bydgoszcz, 21–22.11.2026). Zespół **zschie**.
 
-> Status: **działający demonstrator end-to-end** (wczytanie → cechy → powiązania z przesłankami → kampanie → panel,
-> analiza nowego materiału, eksport Neo4j, Docker). Sprawdzony na syntetycznym zbiorze z etykietami; kalibracja
-> wag na przykładowym zbiorze NASK — gdy tylko trafi do `data/nask/`.
+> Status: **działający demonstrator end-to-end** (wczytanie → cechy → powiązania z przesłankami → kampanie → panel, analiza nowego materiału, eksport Neo4j, Docker). Sprawdzony na syntetycznym zbiorze z etykietami; kalibracja wag na przykładowym zbiorze NASK — gdy tylko trafi do `data/nask/`.
 
 ## Problem
 
@@ -32,8 +30,7 @@ materiał: URL reklamy/strony · zrzut ekranu · rekord ze zbioru NASK
 
 ## Szybki start
 
-Wymagania: Python 3.13 (CPU, bez GPU) albo Docker. Pierwsze uruchomienie skryptu tworzy `.venv`, instaluje
-zależności (`requirements.txt`) i pobiera modele twarzy (≈ 40 MB, `python -m slad models`).
+Wymagania: Python 3.13 (CPU, bez GPU) albo Docker. Pierwsze uruchomienie skryptu tworzy `.venv`, instaluje zależności (`requirements.txt`) i pobiera modele twarzy (≈ 40 MB, `python -m slad models`).
 
 ```bash
 ./start.sh demo                            # zbiór syntetyczny → przetwarzanie offline → ewaluacja (≈ 30 s)
@@ -65,10 +62,8 @@ python -m slad ui                          # panel webowy
 
 ### Konfiguracja
 
-- `config/settings.yaml` — wagi przesłanek, progi relacji i przypisania, sieć, OCR, twarze; `python -m slad link`
-  przelicza powiązania po zmianie wag bez ponownej ekstrakcji cech.
-- `.env` (kopia `.env.example`) — opcjonalny LLM zgodny z API OpenAI (`LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL`;
-  np. lokalna Ollama), `SLAD_OFFLINE=1`, `SLAD_WORKSPACE`. Bez LLM działają heurystyki.
+- `config/settings.yaml` — wagi przesłanek, progi relacji i przypisania, sieć, OCR, twarze; `python -m slad link` przelicza powiązania po zmianie wag bez ponownej ekstrakcji cech.
+- `.env` (kopia `.env.example`) — opcjonalny LLM zgodny z API OpenAI (`LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL`; np. lokalna Ollama), `SLAD_OFFLINE=1`, `SLAD_WORKSPACE`. Bez LLM działają heurystyki.
 - `reference/faces/<Imię_Nazwisko>/*.jpg` — opcjonalna baza twarzy osób, pod które podszywają się reklamy (tylko lokalnie).
 - `config/stoplists.yaml`, `config/narratives.yaml`, `config/gazetteer/` — listy wyjątków, reguły narracji, słowniki osób i marek.
 
