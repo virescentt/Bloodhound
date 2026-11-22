@@ -1392,9 +1392,11 @@ def page_export() -> None:
     sig = C.workspace_signature(root)
     cols = st.columns(len(_EXPORTS), gap="medium")
     for col, (kind, title, fname, mime, desc) in zip(cols, _EXPORTS, strict=True):
-        with col, st.container(border=True):
+        # Karty o równej wysokości, przycisk zawsze na dole — niezależnie od długości opisu.
+        with col, st.container(border=True, height="stretch"):
             st.markdown(f"**{title}**")
             st.caption(desc)
+            st.space("stretch")
             data, err = _export_bytes(kind, str(root), sig)
             if data:
                 st.download_button(
