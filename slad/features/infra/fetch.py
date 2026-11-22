@@ -6,7 +6,9 @@ Zasady bezpieczeństwa (pobieramy strony oszustów):
 - limit rozmiaru (``max_bytes``, odczyt strumieniowy) i czasu (``timeout_s`` na operację + łączny limit łańcucha),
 - treść dekodowana wyłącznie dla text/html, application/xhtml+xml i text/plain (brak typu → rozpoznanie po
   pierwszych bajtach); pliki binarne nie są czytane, zapisywane ani uruchamiane,
-- adresy prywatne i lokalne (127.0.0.1, 10.x, 169.254.x, localhost…) są blokowane (ochrona przed SSRF),
+- adresy prywatne i lokalne (127.0.0.1, 10.x, 169.254.x, localhost…) są blokowane (ochrona przed SSRF) — także
+  w zapisie skróconym (127.1, 0x7f.1) i nazwy domen wskazujące choć jeden taki adres (sprawdzane na każdym
+  przeskoku); połączenie idzie wyłącznie do sprawdzonego adresu IP (ochrona przed DNS rebinding),
 - błąd certyfikatu TLS → jedna ponowna próba bez weryfikacji i znacznik ``tls_invalid``.
 Funkcje nigdy nie rzucają wyjątków — błąd trafia do pola ``error`` (krótko, po polsku).
 """
@@ -15,15 +17,17 @@ from __future__ import annotations
 
 import ipaddress
 import logging
+import socket
 import ssl
 import time
 from dataclasses import dataclass, field
 from typing import Any
 from urllib.parse import urljoin
 
+import httpcore
 import httpx
 
-from slad.features.infra.domains import host_of, is_ip, normalize_url, prepare_fetch_url
+from slad.features.infra.domains import clean_host, host_of, is_ip, normalize_url, prepare_fetch_url, unique
 from slad.features.infra.html import client_redirect, decode_html_bytes, parse_refresh
 
 log = logging.getLogger(__name__)
@@ -73,13 +77,14 @@ def request_headers(cfg: Any, accept: str = ACCEPT_HTML) -> dict[str, str]:
 
 
 def make_client(cfg: Any, *, verify: bool = True, transport: httpx.BaseTransport | None = None) -> httpx.Client:
-    """Klient HTTP bez automatycznych przekierowań (łańcuch budujemy sami)."""
+    """Klient HTTP bez automatycznych przekierowań (łańcuch budujemy sami). Bez wstrzykniętego transportu —
+    transport łączący się tylko ze sprawdzonymi adresami IP (``_PinnedTransport``)."""
     return httpx.Client(
         follow_redirects=False,
         timeout=httpx.Timeout(float(getattr(cfg, "timeout_s", 8.0))),
         headers=request_headers(cfg),
         verify=verify,
-        transport=transport,
+        transport=transport if transport is not None else _PinnedTransport(verify=verify),
     )
 
 
@@ -116,6 +121,8 @@ def error_message(exc: BaseException) -> str:
     if isinstance(exc, httpx.TimeoutException):
         return "przekroczono czas"
     if isinstance(exc, httpx.ConnectError):
+        if isinstance(exc.__cause__, _BlockedAddress):  # blokada SSRF w chwili łączenia (_PinnedBackend)
+            return str(exc.__cause__)
         msg = str(exc).lower()
         if any(k in msg for k in _DNS_MARKERS):
             return "nie można rozwiązać nazwy domeny"
@@ -135,20 +142,115 @@ def error_message(exc: BaseException) -> str:
     return f"błąd ({type(exc).__name__})"
 
 
+BLOCKED_IP = "zablokowano adres prywatny lub lokalny"
+BLOCKED_NAME = "zablokowano: domena wskazuje adres prywatny lub lokalny"
+RESOLVE_CACHE_TTL_S = 300.0
+_RESOLVE_CACHE_MAX = 4096
+_RESOLVE_CACHE: dict[str, tuple[float, tuple[str, ...]]] = {}  # host → (ważne do, adresy); wspólne dla wątków
+
+
+def resolve_addresses(host: str) -> list[str]:
+    """Wszystkie adresy A i AAAA hosta z resolvera systemu (``socket.getaddrinfo``). Nazwa nierozwiązywalna → [].
+    Funkcja na poziomie modułu — testy podmieniają ją atrapą (bez prawdziwego DNS)."""
+    try:
+        infos = socket.getaddrinfo(host, None, proto=socket.IPPROTO_TCP)
+    except (OSError, UnicodeError, ValueError):
+        return []
+    return unique(str(info[4][0]) for info in infos if info[0] in (socket.AF_INET, socket.AF_INET6))
+
+
+def _addresses(host: str) -> tuple[str, ...]:
+    """Adresy hosta z pamięci podręcznej przebiegu (``RESOLVE_CACHE_TTL_S``) — ten sam wynik widzi sprawdzenie
+    ``blocked_reason`` i późniejsze połączenie (``_PinnedBackend``)."""
+    now = time.monotonic()
+    hit = _RESOLVE_CACHE.get(host)
+    if hit is not None and hit[0] > now:
+        return hit[1]
+    addrs = tuple(resolve_addresses(host))
+    if len(_RESOLVE_CACHE) >= _RESOLVE_CACHE_MAX:
+        _RESOLVE_CACHE.clear()
+    _RESOLVE_CACHE[host] = (now + RESOLVE_CACHE_TTL_S, addrs)
+    return addrs
+
+
+def _is_public_ip(value: str) -> bool:
+    """Adres IP publiczny (globalny): nie prywatny, lokalny, link-local, multicast, zarezerwowany ani 0.0.0.0."""
+    try:
+        ip = ipaddress.ip_address(value)
+    except ValueError:
+        return False
+    if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped is not None:  # ::ffff:127.0.0.1
+        ip = ip.ipv4_mapped
+    return ip.is_global and not (
+        ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_multicast or ip.is_reserved or ip.is_unspecified
+    )
+
+
 def blocked_reason(url: str) -> str | None:
-    """Adresy, których nie pobieramy: prywatne/lokalne IP i nazwy lokalne (ochrona przed SSRF)."""
+    """Adresy, których nie pobieramy (ochrona przed SSRF): prywatne/lokalne IP (także w zapisie skróconym, np.
+    ``127.1``), nazwy lokalne i nazwy domen, których choć jeden adres A/AAAA jest niepubliczny (np. ``*.nip.io``).
+    Nazwa nierozwiązywalna → None (pobieranie zakończy się błędem DNS)."""
     host = host_of(url)
     if host is None:
         return "nieprawidłowy adres"
     if is_ip(host):
-        try:
-            if not ipaddress.ip_address(host).is_global:
-                return "zablokowano adres prywatny lub lokalny"
-        except ValueError:
-            return "nieprawidłowy adres"
+        if not _is_public_ip(host):
+            return BLOCKED_IP
     elif host == "localhost" or host.endswith((".localhost", ".local", ".internal", ".lan")):
         return "zablokowano adres lokalny"
+    elif not all(_is_public_ip(ip) for ip in _addresses(host)):
+        return BLOCKED_NAME
     return None
+
+
+class _BlockedAddress(httpcore.ConnectError):
+    """Połączenie z adresem prywatnym lub lokalnym zablokowane w chwili łączenia."""
+
+
+class _PinnedBackend(httpcore.SyncBackend):
+    """Łączy się wyłącznie z adresami IP sprawdzonymi przez blokadę SSRF — tymi samymi, które widział
+    ``blocked_reason`` (wspólna pamięć podręczna), więc zmiana odpowiedzi DNS między sprawdzeniem a połączeniem
+    (DNS rebinding) nie prowadzi do sieci wewnętrznej. Adres URL, nagłówek Host, SNI i weryfikacja certyfikatu
+    nadal używają nazwy domeny."""
+
+    def connect_tcp(
+        self,
+        host: str,
+        port: int,
+        timeout: float | None = None,
+        local_address: str | None = None,
+        socket_options: Any = None,
+    ) -> httpcore.NetworkStream:
+        name = clean_host(host)
+        if name is None:
+            raise httpcore.ConnectError("nieprawidłowy adres")
+        literal = is_ip(name)
+        addrs = (name,) if literal else _addresses(name)
+        if not addrs:
+            raise httpcore.ConnectError(f"getaddrinfo: nie można rozwiązać nazwy {name}")
+        if not all(_is_public_ip(ip) for ip in addrs):
+            raise _BlockedAddress(BLOCKED_IP if literal else BLOCKED_NAME)
+        errors: list[Exception] = []
+        for ip in addrs:
+            try:
+                return super().connect_tcp(
+                    ip, port, timeout=timeout, local_address=local_address, socket_options=socket_options
+                )
+            except (httpcore.ConnectError, httpcore.ConnectTimeout) as e:
+                errors.append(e)
+        raise errors[-1]
+
+
+class _PinnedTransport(httpx.HTTPTransport):
+    """Domyślny transport httpx, ale połączenia TCP idą przez ``_PinnedBackend``."""
+
+    def __init__(self, *, verify: bool = True) -> None:
+        super().__init__(verify=verify)
+        pool = getattr(self, "_pool", None)
+        if hasattr(pool, "_network_backend"):  # httpx nie udostępnia wyboru backendu — pole puli httpcore
+            pool._network_backend = _PinnedBackend()
+        else:  # inna wersja httpx/httpcore: zostaje samo sprawdzenie blocked_reason przed każdym przeskokiem
+            log.warning("httpx: nie można przypiąć sprawdzonych adresów IP (zmienione API httpcore)")
 
 
 def _looks_like_html(data: bytes) -> bool:

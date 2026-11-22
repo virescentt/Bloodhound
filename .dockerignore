@@ -14,10 +14,16 @@ venv
 .vscode
 .idea
 .env
+# sekrety Streamlit — nigdy w obrazie
+.streamlit/secrets.toml
 *.zip
 data
 workspace
 runs
+# eksporty (Neo4j, GraphML, JSON, CSV) — wyniki, nie część obrazu
+exports/
 models/.tmp-*
 reference/faces/*
+# baza twarzy: do obrazu trafia wyłącznie pusty reference/faces/.gitkeep (negacja poniżej)
+reference/
 !reference/faces/.gitkeep

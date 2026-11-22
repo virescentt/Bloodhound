@@ -1,4 +1,4 @@
-"""Interfejs graficzny Śladu Fejka (Streamlit).
+"""Interfejs graficzny Bloodhound (Streamlit).
 
 Uruchomienie:  streamlit run slad/ui/app.py   (albo: python -m slad ui)
 Czyste funkcje pomocnicze (modele → tabele, kolory, graf) są w ``components`` i ``graph`` —

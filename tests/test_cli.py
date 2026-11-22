@@ -288,13 +288,13 @@ def test_export_all_formats(tmp_path, monkeypatch):
     out = tmp_path / "eksport"
     result = runner.invoke(app, ["export", "-w", str(ws_dir), "--format", "all", "--out", str(out)])
     assert result.exit_code == 0, result.output
-    for name in ("nodes_materials.csv", "rels_links.csv", "import.cypher", "slad_fejka.graphml", "slad_fejka.json"):
+    for name in ("nodes_materials.csv", "rels_links.csv", "import.cypher", "bloodhound.graphml", "bloodhound.json"):
         assert (out / name).exists(), name
 
     single = runner.invoke(app, ["export", "-w", str(ws_dir), "-f", "json", "-o", str(tmp_path / "x" / "graf.json")])
     assert single.exit_code == 0 and (tmp_path / "x" / "graf.json").exists()
     default = runner.invoke(app, ["export", "-w", str(ws_dir), "-f", "graphml"])
-    assert default.exit_code == 0 and (ws_dir / "export" / "slad_fejka.graphml").exists()
+    assert default.exit_code == 0 and (ws_dir / "export" / "bloodhound.graphml").exists()
     bad = runner.invoke(app, ["export", "-w", str(ws_dir), "-f", "pdf"])
     assert bad.exit_code == 2 and "Nieznany format" in bad.output
 

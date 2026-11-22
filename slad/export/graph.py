@@ -32,7 +32,7 @@ def build_graph(ws: Workspace, *, flat: bool = True) -> nx.Graph:
     g = nx.Graph()
     g.graph.update(
         {
-            "name": "Ślad Fejka",
+            "name": "Bloodhound",
             "workspace": ws.root.name,
             "generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
             "materials": len(materials),

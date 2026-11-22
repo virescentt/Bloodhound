@@ -5,7 +5,8 @@ Metoda „graph” (domyślna):
 2. spójne składowe = kandydaci na kampanie,
 3. składowe większe niż 6 węzłów są dzielone algorytmem Louvain (waga = wynik, rozdzielczość z konfiguracji,
    seed 42) — przeciw „łańcuchowaniu”: jedno słabe powiązanie nie skleja dwóch kampanii,
-   przy czym pary duplikatów (relacja „duplikat” lub wynik ≥ próg „duplikat”) nigdy nie są rozdzielane,
+   przy czym pary duplikatów (relacja „duplikat” lub wynik ≥ próg „duplikat”) nigdy nie są rozdzielane —
+   chyba że łączy je sam tekst (wspólny szablon tekstu bywa w niezależnych materiałach),
 4. części podziału są ponownie łączone, gdy łączy je gęsta sieć powiązań (≥ 30% możliwych par) albo
    co najmniej dwa silne powiązania (≥ próg „wariant”) — Louvain nie rozbija wariantów jednej kampanii.
 
@@ -21,6 +22,7 @@ from collections.abc import Iterable
 import networkx as nx
 import numpy as np
 
+from slad.link.indicators import SOFT_KINDS
 from slad.models import Link, Relation
 from slad.settings import LinkSettings
 
@@ -61,6 +63,15 @@ class _UnionFind:
             self.parent[rb] = ra
 
 
+def _unsplittable(lk: Link, duplicate: float) -> bool:
+    """Krawędź, której podział nie rozcina: duplikat albo wynik ≥ próg „duplikat” — o ile nie łączy jej sam tekst
+    (przesłanki twarde wyłącznie z grupy „tekst”); powiązanie bez przesłanek (np. z testów) zostaje duplikatem."""
+    if lk.relation != Relation.DUPLICATE and lk.score < duplicate:
+        return False
+    hard = [e for e in lk.evidence if e.kind not in SOFT_KINDS]
+    return not hard or any(e.group != "tekst" for e in hard)
+
+
 def link_graph(ids: Iterable[str], links: Iterable[Link], cfg: LinkSettings) -> nx.Graph:
     """Graf powiązań ≥ próg „powiązany” (atrybuty krawędzi: score, dup)."""
     related, _, duplicate = _thr(cfg)
@@ -77,7 +88,7 @@ def link_graph(ids: Iterable[str], links: Iterable[Link], cfg: LinkSettings) -> 
     G.add_nodes_from(nodes)
     for key in sorted(best):
         lk = best[key]
-        G.add_edge(*key, score=float(lk.score), dup=bool(lk.relation == Relation.DUPLICATE or lk.score >= duplicate))
+        G.add_edge(*key, score=float(lk.score), dup=_unsplittable(lk, duplicate))
     return G
 
 

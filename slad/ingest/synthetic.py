@@ -1832,7 +1832,7 @@ def _readme(camps: list[_Camp], noise: list[_Camp], items: list[_Item], seed: in
     dead = sum(1 for it in items if it.infra and it.infra.get("errors"))
     dups = sum(1 for it in items if it.dup_of is not None)
     lines = [
-        "# Syntetyczny zbiór reklam-oszustw (Ślad Fejka)",
+        "# Syntetyczny zbiór reklam-oszustw (Bloodhound)",
         "",
         f"Wygenerowany przez `slad.ingest.synthetic.generate(seed={seed})` — deterministycznie, w całości fikcyjny.",
         "Służy do testów i demonstracji, dopóki nie ma danych NASK. Osoby, marki, produkty, telefony, portfele",

@@ -964,6 +964,12 @@ def _step_tls(b: _Builder, ctx: Any, cfg: Any, online: bool, **kw: Any) -> None:
     if not url.lower().startswith("https://") or not kw.get("responded"):
         return
     host = kw["net_host"]
+    from slad.features.infra.fetch import blocked_reason
+
+    reason = blocked_reason(f"https://{host}/")  # ochrona przed SSRF także dla sondy TLS
+    if reason:
+        b.error(reason)
+        return
     timeout = float(getattr(cfg, "timeout_s", 8.0))
     value = _cached(b, ctx, "tls", f"{host}:443", online, lambda: tls_info(host, 443, timeout))
     if not value:

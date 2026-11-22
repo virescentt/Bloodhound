@@ -1,8 +1,10 @@
-# Ślad Fejka
+<p align="center"><img src="slad/ui/assets/bloodhound.png" width="160" alt="Bloodhound — logo"></p>
+
+# Bloodhound
 
 **Od pojedynczych reklam do kampanii oszustw.** Narzędzie, które z pojedynczych podejrzanych reklam wyciąga wspólne ślady — treść, obraz i infrastrukturę — i łączy pozornie niezależne materiały w kampanie oszustw.
 
-Zadanie konkursowe NASK **„Kolekcjoner Fejków — Follow the Fake”**, HackNation 2026 (Bydgoszcz, 21–22.11.2026). Zespół **zschie**.
+Zadanie konkursowe NASK **„Kolekcjoner Fejków — Follow the Fake”**, HackNation 2026 (Bydgoszcz, 21–22.11.2026). Zespół **Wanna Pizza**.
 
 > Status: **działający demonstrator end-to-end** (wczytanie → cechy → powiązania z przesłankami → kampanie → panel, analiza nowego materiału, eksport Neo4j, Docker). Sprawdzony na syntetycznym zbiorze z etykietami; kalibracja wag na przykładowym zbiorze NASK — gdy tylko trafi do `data/nask/`.
 
@@ -17,7 +19,7 @@ materiał: URL reklamy/strony · zrzut ekranu · rekord ze zbioru NASK
   ─► POZYSKANIE    pobranie strony, łańcuch przekierowań, zrzut, OCR
   ─► CECHY         treść i narracja: OCR + LLM (osoba, produkt, obietnica zysku, wezwanie do działania)
                    obraz: perceptual hash, embeddingi, wspólne szablony i logotypy
-                   infrastruktura: domena, WHOIS/RDAP, DNS, IP/ASN, przekierowania, struktura strony
+                   infrastruktura: domena, RDAP, DNS, IP/ASN, przekierowania, struktura strony
   ─► PODOBIEŃSTWO  ważone per grupa cech, odporne na brakujące dane
   ─► GRUPOWANIE    graf powiązań → kampanie; wykrywanie duplikatów i wariantów
   ─► PREZENTACJA   panel webowy: graf kampanii + przesłanki każdego połączenia
@@ -106,4 +108,4 @@ Przykładowy zbiór reklam typu scam udostępnia NASK (kanał Discord HackNation
 
 ## Zespół
 
-Zespół *zschie* — HackNation 2026.
+Zespół *Wanna Pizza* — HackNation 2026.

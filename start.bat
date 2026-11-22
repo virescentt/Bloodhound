@@ -1,6 +1,6 @@
 @echo off
 setlocal
-REM Slad Fejka - uruchomienie (Windows: cmd / PowerShell; w Git Bash uzyj ./start.sh).
+REM Bloodhound - uruchomienie (Windows: cmd / PowerShell; w Git Bash uzyj ./start.sh).
 REM Pierwsze uruchomienie: tworzy .venv (Python 3.13), instaluje zaleznosci i pobiera modele twarzy.
 REM   start.bat               -> interfejs graficzny http://localhost:8501
 REM   start.bat demo          -> zbior syntetyczny -> przetwarzanie offline -> ewaluacja

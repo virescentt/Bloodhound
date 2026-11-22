@@ -1300,7 +1300,7 @@ def settings_frame(cfg: Any) -> pd.DataFrame:
 
 
 BUILTIN_METHODOLOGY = """
-### Jak Ślad Fejka łączy materiały w kampanie
+### Jak Bloodhound łączy materiały w kampanie
 
 1. **Pozyskanie cech.** Każdy materiał (URL, zrzut ekranu, zapisany HTML, tekst, rekord zbioru) jest
    opisywany trzema grupami cech:
@@ -1310,7 +1310,7 @@ BUILTIN_METHODOLOGY = """
    - **obraz** — hashe percepcyjne (pHash/dHash/wHash/colorHash), twarze rozpoznawane względem bazy
      referencyjnej;
    - **infrastruktura** — łańcuch przekierowań, domeny, trackery (GA/GTM/Pixel), favicona, szablon DOM,
-     DNS, RDAP/WHOIS, IP/ASN, certyfikat TLS.
+     DNS, RDAP, IP/ASN, certyfikat TLS.
 2. **Podobieństwo par.** Dla kandydatów (wspólne wskaźniki, LSH MinHash, kubełki pHash) liczymy
    **przesłanki**. Wynik powiązania to suma wag przesłanek; wskaźniki częste w zbiorze (np. wspólny CDN)
    są osłabiane (ważenie rzadkością). Porównujemy tylko cechy dostępne w obu materiałach.

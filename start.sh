@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Ślad Fejka — uruchomienie (macOS / Linux / Git Bash na Windows).
+# Bloodhound — uruchomienie (macOS / Linux / Git Bash na Windows).
 # Pierwsze uruchomienie: tworzy .venv (Python 3.13), instaluje zależności i pobiera modele twarzy.
 #   ./start.sh                 → interfejs graficzny http://localhost:8501
 #   ./start.sh demo            → zbiór syntetyczny → przetwarzanie offline → ewaluacja

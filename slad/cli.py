@@ -84,7 +84,7 @@ def main(
         bool, typer.Option("--verbose", "-v", help="Więcej komunikatów (logi INFO, pełne błędy).")
     ] = False,
 ) -> None:
-    """[bold]Ślad Fejka[/] — od pojedynczych reklam do kampanii oszustw (NASK: Kolekcjoner Fejków).
+    """[bold]Bloodhound[/] — od pojedynczych reklam do kampanii oszustw (NASK: Kolekcjoner Fejków).
 
     Start bez danych NASK: [bold]python -m slad demo[/], potem [bold]python -m slad ui --workspace workspace/demo[/].
     """
@@ -256,10 +256,10 @@ def export(
         if fmt in {"neo4j", "all"}:
             written += export_neo4j(ws, out_dir)
         if fmt in {"graphml", "all"}:
-            file = target if target.suffix.lower() == ".graphml" else out_dir / "slad_fejka.graphml"
+            file = target if target.suffix.lower() == ".graphml" else out_dir / "bloodhound.graphml"
             written.append(export_graphml(ws, file))
         if fmt in {"json", "all"}:
-            file = target if target.suffix.lower() == ".json" else out_dir / "slad_fejka.json"
+            file = target if target.suffix.lower() == ".json" else out_dir / "bloodhound.json"
             written.append(export_json(ws, file))
     for p in written:
         console.print(f"  ✓ {_display_path(p)}")

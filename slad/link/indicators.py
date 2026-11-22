@@ -12,7 +12,9 @@ Zasady odporności (fałszywe powiązania kosztują najwięcej):
 - strona-wizytówka platformy (np. przekierowanie na facebook.com), strona błędu, parking domeny czy
   wyzwanie Cloudflare („Just a moment…”) NIE dostarczają cech strony (tytuł, favicon, szablon, formularz),
 - adresy prywatne / zastrzeżone i adresy brzegowe CDN nie są wskaźnikiem IP,
-- domeny na współdzielonych hostingach (wixsite.com, netlify.app, …) są identyfikowane po pełnym hoście.
+- domeny na współdzielonych hostingach (wixsite.com, netlify.app, …) są identyfikowane po pełnym hoście,
+- certyfikat współdzielony (CDN, SAN wieloznaczny „*.”, SAN-y > 10 różnych domen) nie daje odcisku TLS ani domen
+  z certyfikatu.
 """
 
 from __future__ import annotations
@@ -684,9 +686,20 @@ def _ns_stopped_cached(ns: str, patterns: tuple[str, ...]) -> bool:
     return False
 
 
-def _shared_cdn_cert(sans: Iterable[str]) -> bool:
-    """Współdzielony certyfikat brzegowy CDN (np. dawne sni.cloudflaressl.com) — SAN-y obcych witryn."""
-    return any("cloudflaressl.com" in str(s).lower() for s in sans)
+CERT_MAX_DOMAINS = 10  # certyfikat z SAN-ami > 10 różnych domen zarejestrowanych to zwykle certyfikat współdzielony
+# (hosting, CDN) — jego odcisk i domeny nie są śladem operatora kampanii (operator ma zwykle kilka domen)
+
+
+def _shared_cert(names: Iterable[str]) -> bool:
+    """Certyfikat współdzielony — jego odcisk i SAN-y nie są przesłanką: brzegowy CDN (np. dawne
+    sni.cloudflaressl.com), SAN wieloznaczny („*.”) albo SAN-y > CERT_MAX_DOMAINS różnych domen zarejestrowanych
+    (typowe dla hostingu współdzielonego i CDN)."""
+    raw = [str(s).strip().lower() for s in names if s]
+    if any("cloudflaressl.com" in s or s.startswith("*.") for s in raw):
+        return True
+    regs = {registered_domain(s) for s in raw}
+    regs.discard("")
+    return len(regs) > CERT_MAX_DOMAINS
 
 
 def registrar_is_common(registrar: str | None, stop: Stoplists | None = None) -> bool:
@@ -856,10 +869,12 @@ def indicators(fs: FeatureSet, stop: Stoplists | None = None) -> dict[str, set[s
             ns_n = str(ns).strip().lower().rstrip(".")
             if ns_n and not _ns_stopped(ns_n, stop):
                 put("nameserver", ns_n)
-        if not _shared_cdn_cert(inf.tls_sans):
+        if not _shared_cert(inf.tls_sans):
             if inf.tls_fingerprint:
                 put("tls_fingerprint", re.sub(r"[^0-9a-f]", "", inf.tls_fingerprint.lower()) or None)
-            for san in list(inf.tls_sans) + list(inf.ct_domains):
+            # nazwy z CT (crt.sh) pochodzą z wielu certyfikatów domeny — ta sama reguła dla całej listy
+            ct = list(inf.ct_domains) if not _shared_cert(inf.ct_domains) else []
+            for san in list(inf.tls_sans) + ct:
                 dom = site_domain(san, stop)
                 if dom and not _domain_stopped(dom, stop):
                     put("cert_domain", dom)

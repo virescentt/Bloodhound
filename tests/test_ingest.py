@@ -387,11 +387,14 @@ def test_workspace_roundtrip_and_reload_materials_jsonl(tmp_path: Path) -> None:
     ws.save_materials(ms)
     again = Workspace(tmp_path / "ws").materials()
     assert [m.model_dump() for m in again] == [m.model_dump() for m in ms]
-    # materials.jsonl z katalogu roboczego też da się wczytać jako zbiór
+    # materials.jsonl z katalogu roboczego też da się wczytać jako zbiór; zdjęcia leżą poza jego katalogiem,
+    # więc zgodnie z regułą bezpieczeństwa (ścieżki tylko w katalogu wczytywanego zbioru) są odrzucone z ostrzeżeniem
     reloaded = load_dataset(tmp_path / "ws" / "materials.jsonl")
     r, o = reloaded[0], ms[0]
-    assert (r.id, r.url, r.image_paths, r.label, r.observed_at) == (o.id, o.url, o.image_paths, o.label, o.observed_at)
-    assert r.meta["infra"] == o.meta["infra"] and r.source == o.source
+    assert (r.id, r.url, r.label, r.observed_at) == (o.id, o.url, o.label, o.observed_at)
+    assert r.image_paths == [] and any("spoza katalogu" in w for w in r.meta.get("ingest_warnings", []))
+    # bez zdjęcia zostaje sam adres, więc rodzaj materiału to „url” zamiast „record”
+    assert r.meta["infra"] == o.meta["infra"] and r.source.value == "url"
 
 
 def test_sidecars_crlf_csv_and_content_sniffing(tmp_path: Path) -> None:

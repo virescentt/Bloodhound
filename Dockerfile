@@ -1,7 +1,7 @@
-# Ślad Fejka — obraz CPU-only (bez GPU): interfejs Streamlit + CLI (python -m slad …).
+# Bloodhound — obraz CPU-only (bez GPU): interfejs Streamlit + CLI (python -m slad …).
 #   docker compose up --build app        → http://localhost:8501   (więcej przykładów: docker-compose.yml)
-#   docker build -t slad-fejka . && docker run --rm -p 8501:8501 -v "$PWD/workspace:/app/workspace" slad-fejka
-#   docker run --rm -v "$PWD/data:/app/data" -v "$PWD/workspace:/app/workspace" slad-fejka python -m slad demo
+#   docker build -t bloodhound . && docker run --rm -p 127.0.0.1:8501:8501 -v "$PWD/workspace:/app/workspace" bloodhound
+#   docker run --rm -v "$PWD/data:/app/data" -v "$PWD/workspace:/app/workspace" bloodhound python -m slad demo
 # Dane NASK i wyniki NIE trafiają do obrazu (.dockerignore) — montujemy je jako wolumeny.
 FROM python:3.13-slim
 

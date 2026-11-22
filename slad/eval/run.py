@@ -317,7 +317,7 @@ def format_report(report: dict[str, Any]) -> str:
     err = report.get("errors", {})
     pw, b3 = cl.get("pairwise", {}), cl.get("bcubed", {})
     out = [
-        "EWALUACJA — Ślad Fejka",
+        "EWALUACJA — Bloodhound",
         "=" * 60,
         f"Materiały: {c.get('materials', 0)} (z etykietą: {c.get('labeled', 0)}; etykiet: {c.get('labels', 0)}, "
         f"w tym unikalnych: {c.get('unique_labels', 0)})",

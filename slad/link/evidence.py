@@ -16,8 +16,10 @@ Przesłanki:
 - szablon strony: odległość simhash DOM ≤ 6 (lub identyczny HTML); tylko strony nie-generyczne,
 - rejestrator + data rejestracji domen (±3 dni) dla różnych domen.
 
-Rzadkość: wartości dokładne — częstość w korpusie (stats.py); obraz i szablon strony — gęstość sąsiedztwa
-(ile innych materiałów ma obraz / szablon w promieniu Δ ≤ 6): wspólny układ zrzutów platformy waży mało.
+Rzadkość: wartości dokładne — częstość w korpusie (stats.py); obraz, szablon strony i tekst — gęstość sąsiedztwa
+(ile innych materiałów ma obraz / szablon w promieniu Δ ≤ 6, tekst niemal identyczny: Jaccard ≥ 0.5 lub cos ≥ 0.8):
+wspólny układ zrzutów platformy waży mało. Tekst niemal identyczny w > 20% zbioru (i w > 5 materiałach) to szablon
+/ „tło”: sam nie wiąże materiałów (przesłanka średnia) — potrzebny inny kanał (identyfikator, domena, obraz…).
 
 Trzy poziomy przesłanek i ochrona przed fałszywymi powiązaniami (ta sama twarz celebryty występuje
 w wielu kampaniach, „tło internetu” — CDN, hosting, skracacze — w niezależnych materiałach):
@@ -32,7 +34,8 @@ w wielu kampaniach, „tło internetu” — CDN, hosting, skracacze — w nieza
 
 Relacja: duplikat (treść niemal identyczna we wszystkich grupach treści obecnych w obu materiałach: tekst
 Jaccard ≥ 0.9 lub cos ≥ 0.98, obraz — ten sam plik lub pHash/dHash Δ ≤ 2) · wariant (wynik ≥ próg „wariant”)
-· powiązany (wynik ≥ próg). Wysoki wynik z samej wspólnej infrastruktury to wariant, nie duplikat.
+· powiązany (wynik ≥ próg). Wysoki wynik z samej wspólnej infrastruktury to wariant, nie duplikat; sam tekst
+(bez wspólnego obrazu, identyfikatora ani infrastruktury) też nie daje duplikatu.
 """
 
 from __future__ import annotations
@@ -108,6 +111,9 @@ IMAGE_DUP_DIST = 2  # …i ten sam plik albo pHash Δ ≤ 2 przy dHash Δ ≤ 2 
 IMAGE_DUP_DHASH = 2
 RARITY_NOTE_BELOW = 0.9  # przy mniejszym współczynniku opis wspomina o obniżonej wadze
 TFIDF_MAX_CHARS = 5000
+TEXT_COMMON_FRACTION = 0.2  # tekst niemal identyczny w > 20% zbioru to szablon / „tło”, nie ślad kampanii: sam nie
+# wiąże materiałów (wymaga innego kanału: identyfikatora, domeny, obrazu, infrastruktury) i nie daje duplikatu
+TEXT_COMMON_MIN = 5  # …o ile powtarza się w > 5 materiałach (w małym zbiorze jedna kampania to duża część korpusu)
 DENSE_MAX = 1500  # do tej liczby materiałów macierz podobieństw tekstu liczona w całości
 HASH_FEATURES = 2**21
 MAX_EXTRA = 256  # ile materiałów spoza bazy (add) pamięta kontekst
@@ -687,6 +693,77 @@ class LinkContext:
             return 1.0, df
         return rarity_from_df(df, max(len(self.ids), 1), "image_density"), df
 
+    # ------------------------------------------------------------ gęstość sąsiedztwa tekstu
+    def _text_index(self) -> dict:
+        """Sygnatury MinHash bazy (macierz + właściciele), maska tekstów ≥ MIN_TEXT_CHARS i pamięć liczników."""
+        cached = getattr(self, "_text_dens", None)
+        if cached is not None:
+            return cached
+        rows, owner = [], []
+        for i, mid in enumerate(self.ids):
+            p = self.prep[mid]
+            if p.minhash is not None and p.n_words >= MIN_MINHASH_WORDS:
+                rows.append(p.minhash)
+                owner.append(i)
+        mh = None
+        if rows:
+            length = Counter(len(r) for r in rows).most_common(1)[0][0]
+            keep = [k for k, r in enumerate(rows) if len(r) == length]
+            mh = (np.vstack([rows[k] for k in keep]), np.asarray([owner[k] for k in keep], dtype=np.int64))
+        ok = np.asarray([self.prep[mid].n_chars >= MIN_TEXT_CHARS for mid in self.ids], dtype=bool)
+        self._text_dens = {"mh": mh, "ok": ok, "count": {}}
+        return self._text_dens
+
+    def text_neighbour_count(self, p: Prepared) -> int:
+        """Ilu INNYCH materiałów bazy ma tekst niemal identyczny z `p` — kryterium przesłanki „tekst niemal
+        identyczny”: Jaccard MinHash ≥ 0.5 albo kosinus n-gramów znakowych (całość tekstu, treść reklamy, kanały
+        wejście / OCR) ≥ 0.8. Duże zbiory (> DENSE_MAX, bez macierzy gęstych) — tylko MinHash."""
+        idx = self._text_index()
+        base = self.is_base(p)
+        if base and p.id in idx["count"]:
+            return idx["count"][p.id]
+        near = np.zeros(len(self.ids), dtype=bool)
+        if self.S is not None:
+            s_seg = None
+            if base:
+                i = self.row[p.id]
+                s_text, s_cre = self.S[i], self.Sc[i]
+                if self.Sseg is not None:
+                    s_seg = self.Sseg[i]
+            else:
+                s_text, s_cre = self.base_text_sims(p)
+                if self.Xi is not None and self.extra.get(p.id) is p:
+                    s_seg = self._extra_segment_sims(p)[0]
+            if p.n_chars >= MIN_TEXT_CHARS:
+                near |= (s_text >= TFIDF_STRONG) & idx["ok"]
+            near |= s_cre >= TFIDF_STRONG  # krótka / pusta treść reklamy ma wektor zerowy
+            if s_seg is not None:
+                near |= s_seg >= TFIDF_STRONG
+        if idx["mh"] is not None and p.minhash is not None and p.n_words >= MIN_MINHASH_WORDS:
+            M, owner = idx["mh"]
+            if p.minhash.shape[0] == M.shape[1]:
+                j = np.count_nonzero(M == p.minhash[None, :], axis=1) / float(M.shape[1])
+                near[owner[j >= MINHASH_MIN]] = True
+        own = self.row.get(p.id)
+        if own is not None:
+            near[own] = False
+        count = int(near.sum())
+        if base:
+            idx["count"][p.id] = count
+        return count
+
+    def text_density(self, p: Prepared) -> tuple[float, int, bool]:
+        """(współczynnik rzadkości, liczba materiałów z niemal identycznym tekstem wraz z `p`, czy tekst to „tło”).
+
+        Rzadkość jak dla obrazu (gęstość sąsiedztwa: bez kary do 25% zbioru); tekst powtarzany w > 20% zbioru
+        (TEXT_COMMON_FRACTION) i w > 5 materiałach (TEXT_COMMON_MIN) to szablon — sam nie wiąże materiałów."""
+        df = self.text_neighbour_count(p) + 1
+        if df <= TEXT_COMMON_MIN:
+            return 1.0, df, False
+        n = max(len(self.ids), 1)
+        r = rarity_from_df(df, n, "image_density") if self.cfg.link.rarity else 1.0
+        return r, df, df > TEXT_COMMON_FRACTION * n
+
     # ------------------------------------------------------------ MinHash
     def minhash(self, mid: str):
         """datasketch.MinHash odtworzony z sygnatury (None, gdy brak sygnatury)."""
@@ -1030,8 +1107,34 @@ def _text_items(pa: Prepared, pb: Prepared, ctx: LinkContext, content: _Content)
     if mh and tf:  # bez podwójnego liczenia: słabsza miara tekstu liczy się w połowie
         weaker = mh if mh.weight < tf.weight else tf
         weaker.weight *= 0.5
-    items.extend(x for x in (mh, tf) if x is not None and x.weight > 0)
+    found = [x for x in (mh, tf) if x is not None]
+    if found:
+        _apply_text_density(found, pa, pb, ctx)
+    items.extend(x for x in found if x.weight > 0)
     return items
+
+
+def _apply_text_density(found: list[_Item], pa: Prepared, pb: Prepared, ctx: LinkContext) -> None:
+    """Gęstość sąsiedztwa tekstu (jak dla obrazu): tekst powtarzany w dużej części zbioru to szablon / „tło” —
+    waga maleje (rzadkość), a powyżej TEXT_COMMON_FRACTION tekst jest tylko przesłanką średnią: bez innego
+    kanału (identyfikator, domena, obraz, infrastruktura) wynik zostaje poniżej progu „powiązany”."""
+    ra, dfa, common_a = ctx.text_density(pa)
+    rb, dfb, common_b = ctx.text_density(pb)
+    r, df, common = min(ra, rb), max(dfa, dfb), common_a or common_b
+    if not common and r >= 1.0:
+        return
+    note = ""
+    if common:
+        note = f" — tekst powtarzany w {df} z {len(ctx.ids)} mat. (szablon?): sam nie wystarcza do powiązania"
+        if r < RARITY_NOTE_BELOW:
+            note += ", waga obniżona"
+    for it in found:
+        it.weight *= r
+        it.rarity = min(it.rarity, r)
+        it.df = df
+        if common:
+            it.tier = "weak"
+            it.detail += note
 
 
 def _image_items(pa: Prepared, pb: Prepared, ctx: LinkContext, content: _Content) -> list[_Item]:
@@ -1139,6 +1242,10 @@ def _dom_items(pa: Prepared, pb: Prepared, ctx: LinkContext) -> list[_Item]:
     ]
 
 
+# dwie miary tego samego tekstu (MinHash, TF-IDF) to przy potwierdzaniu powiązania jeden rodzaj przesłanki
+_CHANNEL = {"text_minhash": "tekst", "text_tfidf": "tekst"}
+
+
 def _apply_caps(items: list[_Item], related: float) -> None:
     """Limity: osoby ≤ 0.75 × próg; przesłanki miękkie ≤ min(0.875 × próg, max(0.5 × próg, 2 × twarde));
     bez przesłanki silnej i przy < 2 rodzajach przesłanek średnich — wynik < próg (brak powiązania)."""
@@ -1159,7 +1266,7 @@ def _apply_caps(items: list[_Item], related: float) -> None:
     # potwierdzenie: powiązanie wymaga przesłanki silnej albo ≥ 2 różnych rodzajów przesłanek średnich —
     # liczą się tylko wartości nieczęste w zbiorze (wspólna favicona hostingu + wspólny skracacz to wciąż „tło”)
     strong = any(it.tier == "strong" and it.rarity >= RARE_ENOUGH for it in items)
-    weak_kinds = {it.kind for it in items if it.tier == "weak" and it.rarity >= RARE_ENOUGH}
+    weak_kinds = {_CHANNEL.get(it.kind, it.kind) for it in items if it.tier == "weak" and it.rarity >= RARE_ENOUGH}
     if not strong and len(weak_kinds) < 2:
         total = sum(it.weight for it in items)
         cap = CORROBORATION_CAP * related
@@ -1168,9 +1275,13 @@ def _apply_caps(items: list[_Item], related: float) -> None:
                 it.weight *= cap / total
 
 
-def _relation(score: float, pa: Prepared, pb: Prepared, content: _Content, cfg: Settings) -> Relation | None:
+def _relation(
+    score: float, pa: Prepared, pb: Prepared, content: _Content, cfg: Settings, items: list[_Item]
+) -> Relation | None:
     """Relacja pary: duplikat = ta sama treść (każda grupa treści obecna w obu materiałach niemal identyczna);
-    sam wysoki wynik (wspólna infrastruktura) oznacza wariant tej samej kampanii, nie duplikat."""
+    sam wysoki wynik (wspólna infrastruktura) oznacza wariant tej samej kampanii, nie duplikat. Sam tekst
+    (bez wspólnego obrazu, identyfikatora ani infrastruktury) też nie: ten sam szablon tekstu bywa
+    w niezależnych materiałach, a duplikatów grupowanie nie rozdziela."""
     related, variant, _ = thresholds(cfg)
     if score < related:
         return None
@@ -1179,11 +1290,15 @@ def _relation(score: float, pa: Prepared, pb: Prepared, content: _Content, cfg: 
         j = content.jaccard or 0.0
         c = max(content.cos_text, content.cos_creative)
         identical.append(j >= TEXT_DUP_JACCARD or c >= TEXT_DUP_COSINE)
-    if pa.images and pb.images and content.image_dist is not None:  # obrazy porównywalne (hash / SHA-256)
+    images_compared = bool(pa.images and pb.images and content.image_dist is not None)
+    if images_compared:  # obrazy porównywalne (hash / SHA-256)
         d, dd = content.image_dist, content.image_dhash
         identical.append(content.image_identical or (d <= IMAGE_DUP_DIST and (dd is None or dd <= IMAGE_DUP_DHASH)))
     if identical:
-        if all(identical):
+        other_channel = images_compared or any(
+            not it.soft and it.rarity >= RARE_ENOUGH and KIND_GROUP.get(it.kind) != "tekst" for it in items
+        )
+        if all(identical) and other_channel:
             return Relation.DUPLICATE
     elif not pa.has_content and not pb.has_content and pa.urls & pb.urls:
         return Relation.DUPLICATE  # same adresy (bez treści) — ten sam materiał zgłoszony ponownie
@@ -1246,7 +1361,7 @@ def score_pair(fa: FeatureSet, fb: FeatureSet, ctx: LinkContext) -> PairScore:
         a=fa.material_id,
         b=fb.material_id,
         score=score,
-        relation=_relation(score, pa, pb, content, ctx.cfg),
+        relation=_relation(score, pa, pb, content, ctx.cfg, items),
         evidence=_evidence(items),
         coverage=_coverage(pa, pb),
     )
@@ -1257,7 +1372,7 @@ def compare_prepared(pa: Prepared, pb: Prepared, ctx: LinkContext) -> Link | Non
         return None
     items, content = _evaluate(pa, pb, ctx)
     score = _score(items)
-    relation = _relation(score, pa, pb, content, ctx.cfg)
+    relation = _relation(score, pa, pb, content, ctx.cfg, items)
     if relation is None:
         return None
     return Link(a=pa.id, b=pb.id, score=score, relation=relation, evidence=_evidence(items), coverage=_coverage(pa, pb))

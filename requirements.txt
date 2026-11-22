@@ -1,4 +1,4 @@
-# Ślad Fejka — zależności (Python 3.13, CPU, bez GPU). Wersje sprawdzone 21.11.2026 (pip freeze).
+# Bloodhound — zależności (Python 3.13, CPU, bez GPU). Wersje sprawdzone 21.11.2026 (pip freeze).
 # Wyłącznie open source z licencjami permisywnymi (MIT / BSD / Apache-2.0 / ISC / MIT-CMU).
 # Opcjonalnie CLIP (podobieństwo semantyczne grafik): requirements-extra.txt
 #

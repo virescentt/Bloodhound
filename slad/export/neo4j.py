@@ -42,14 +42,14 @@ MEMBER_COLUMNS = ("material", "campaign")
 HAS_INDICATOR_COLUMNS = ("material", "key", "kind", "value")
 
 IMPORT_CYPHER = """\
-// Ślad Fejka — import grafu materiałów i kampanii do Neo4j (5.x; 4.4 także).
+// Bloodhound — import grafu materiałów i kampanii do Neo4j (5.x; 4.4 także).
 //
 // 1) Pliki *.csv z tego katalogu muszą leżeć w katalogu `import` bazy. Najprościej Neo4j w Dockerze,
-//    uruchomiony W TYM KATALOGU (Neo4j Browser: http://localhost:7474, login neo4j / slad-fejka):
-//      docker run --rm -p 7474:7474 -p 7687:7687 -e NEO4J_AUTH=neo4j/slad-fejka -v "$PWD":/import neo4j:5
+//    uruchomiony W TYM KATALOGU (Neo4j Browser: http://localhost:7474, login neo4j / bloodhound):
+//      docker run --rm -p 7474:7474 -p 7687:7687 -e NEO4J_AUTH=neo4j/bloodhound -v "$PWD":/import neo4j:5
 // 2) Wczytanie (w drugim terminalu, w tym samym katalogu):
-//      docker exec -i $(docker ps -qf ancestor=neo4j:5) cypher-shell -u neo4j -p slad-fejka < import.cypher
-//    albo: cypher-shell -u neo4j -p slad-fejka -f import.cypher   (albo wklej polecenia w Neo4j Browser)
+//      docker exec -i $(docker ps -qf ancestor=neo4j:5) cypher-shell -u neo4j -p bloodhound < import.cypher
+//    albo: cypher-shell -u neo4j -p bloodhound -f import.cypher   (albo wklej polecenia w Neo4j Browser)
 // Import jest idempotentny (MERGE) — można go powtarzać po kolejnym eksporcie.
 // Bardzo duże zbiory (>100 tys. wierszy): opakuj LOAD CSV w CALL { ... } IN TRANSACTIONS OF 1000 ROWS
 // (w Neo4j Browser z prefiksem :auto).
@@ -304,7 +304,22 @@ def _clip(text: str, limit: int) -> str:
     return text if len(text) <= limit else text[: limit - 1] + "…"
 
 
+FORMULA_PREFIXES = ("=", "+", "-", "@", "\t", "\r")
+
+
+def csv_safe(value: Any) -> Any:
+    """Tekst zaczynający się od = + - @ (lub tabulatora, CR) Excel uruchomiłby jako formułę — poprzedzamy apostrofem.
+    Liczby i pozostałe wartości bez zmian."""
+    if isinstance(value, str) and value.startswith(FORMULA_PREFIXES):
+        return "'" + value
+    return value
+
+
 def _cell(value: Any) -> Any:
+    return csv_safe(_plain(value))
+
+
+def _plain(value: Any) -> Any:
     if value is None:
         return ""
     if isinstance(value, datetime):
@@ -314,7 +329,7 @@ def _cell(value: Any) -> Any:
     if isinstance(value, int | float):
         return value
     if isinstance(value, list | tuple | set):
-        items = (_cell(v) for v in value)
+        items = (_plain(v) for v in value)
         return SEP.join(str(v).replace(SEP, "/") for v in items if v not in ("", None))
     return " ".join(str(value).split())  # bez znaków nowej linii — czytelniej w Neo4j i arkuszach
 

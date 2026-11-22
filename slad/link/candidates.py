@@ -2,7 +2,14 @@
 
 Do 400 materiałów porównujemy wszystkie pary (dokładnie i wciąż szybko). Powyżej — suma kandydatów z:
 - indeksu odwrotnego wskaźników twardych (domena, tracker, telefon, portfel, favicon, IP…); wartości obecne
-  w więcej niż max(50, 20% zbioru) materiałach są pomijane (wspólna infrastruktura, nie ślad kampanii),
+  w więcej niż max(50, 20% zbioru) materiałach są pomijane (wspólna infrastruktura, nie ślad kampanii) —
+  z wyjątkiem przesłanek silnych (STRONG_KINDS: identyfikatory operatora — telefon, e-mail, tracker, portfel,
+  Telegram, WhatsApp, IBAN, certyfikat TLS, skrócony link — oraz domena docelowa / z certyfikatu). Duży kubełek
+  takiej wartości nie jest pomijany: do STRONG_BUCKET_MAX (= 400) materiałów — wszystkie pary (jak przy
+  porównaniu wszystkich par małego zbioru, najwyżej 79 800 par), powyżej — „gwiazda”: każdy materiał kubełka
+  w parze z jego pierwszym materiałem (k − 1 par, praca O(k)). Kampania większa niż 20% zbioru nadal tworzy
+  spójną składową, a wagę przesłanki i tak obniża rzadkość (stats.py: identyfikatory operatora bez kary
+  do 35% zbioru, domena do 25%),
 - LSH MinHash (datasketch, próg ≈ 0.5) — teksty niemal identyczne,
 - pHash: dokładne wyszukiwanie par o odległości Hamminga ≤ 10 (blokowo w numpy, popcount) + identyczne
   SHA-256 i dHash; simhash DOM ≤ 6 i identyczny HTML,
@@ -10,6 +17,10 @@ Do 400 materiałów porównujemy wszystkie pary (dokładnie i wciąż szybko). P
 - TF-IDF: top-10 sąsiadów wg kosinusa (dla dużych zbiorów: wiersze przycięte do 160 najsilniejszych
   n-gramów — szybkie i z wysoką czułością; dokładny kosinus liczy potem porównanie pary).
 Przesłanki miękkie (osoba, narracja, marka) nie generują kandydatów — same i tak nie wiążą materiałów.
+
+Nowy materiał (neighbours) — te same źródła i ta sama reguła: z dużego kubełka przesłanki silnej bierzemy
+STRONG_BUCKET_MAX pierwszych materiałów (w tym środek gwiazdy) — koszt analizy nowego materiału pozostaje
+ograniczony także dla kampanii liczących tysiące materiałów.
 """
 
 from __future__ import annotations
@@ -22,7 +33,7 @@ from itertools import combinations
 import numpy as np
 
 from slad.link.evidence import DOM_MAX, MIN_MINHASH_WORDS, PHASH_MAX, TFIDF_MIN, LinkContext, Prepared
-from slad.link.indicators import INDEX_KINDS
+from slad.link.indicators import INDEX_KINDS, STRONG_KINDS
 from slad.models import FeatureSet
 
 log = logging.getLogger(__name__)
@@ -30,6 +41,9 @@ log = logging.getLogger(__name__)
 ALL_PAIRS_MAX = 400
 INDEX_DF_CAP = 50
 INDEX_DF_FRACTION = 0.2
+# kubełek przesłanki silnej większy niż df_cap: do tylu materiałów — wszystkie pary, powyżej — gwiazda wokół
+# pierwszego materiału; nowy materiał porównujemy z najwyżej tyloma pierwszymi materiałami kubełka
+STRONG_BUCKET_MAX = ALL_PAIRS_MAX
 LSH_THRESHOLD = 0.5
 MINHASH_CANDIDATE = 0.45
 TFIDF_TOPK = 10
@@ -135,15 +149,46 @@ def _build_index(ctx: LinkContext) -> BaseIndex:
 # ---------------------------------------------------------------- generatory par (cała baza)
 
 
-def _index_pairs(bi: BaseIndex) -> set[Pair]:
+def _index_pairs(bi: BaseIndex, keep: set[int] | None = None) -> set[Pair]:
+    """Pary z indeksu odwrotnego wskaźników.
+
+    Kubełek ≤ df_cap materiałów → wszystkie pary. Większy kubełek wartości przesłanki silnej (STRONG_KINDS):
+    ≤ STRONG_BUCKET_MAX materiałów → nadal wszystkie pary; jeszcze większy → gwiazda (każdy materiał w parze
+    z pierwszym materiałem kubełka: k − 1 par, praca O(k) zamiast O(k²)). Większe kubełki pozostałych rodzajów
+    są pomijane (wspólna infrastruktura). `keep` (pozycje w bazie) — gdy candidate_pairs dostało tylko część
+    bazy, duży kubełek jest najpierw zawężany do niej (środek gwiazdy jest wtedy porównywanym materiałem).
+    """
     out: set[Pair] = set()
     cap = bi.df_cap
-    for members in bi.inv.values():
+    for (kind, _), members in bi.inv.items():
         uniq = sorted(set(members))
-        if 2 <= len(uniq) <= cap:
-            for i, j in combinations(uniq, 2):
-                out.add(_pair(bi.ids[i], bi.ids[j]))
+        if len(uniq) <= cap:
+            head, tail = uniq, []
+        elif kind in STRONG_KINDS:
+            if keep is not None:
+                uniq = [i for i in uniq if i in keep]
+            # powyżej limitu sama gwiazda — klikę z doczepionymi liśćmi Louvain rozdzieliłby na dwie kampanie
+            head, tail = (uniq, []) if len(uniq) <= STRONG_BUCKET_MAX else (uniq[:1], uniq[1:])
+        else:
+            continue
+        for i, j in combinations(head, 2):
+            out.add(_pair(bi.ids[i], bi.ids[j]))
+        if head and tail:
+            hub = bi.ids[head[0]]
+            out.update(_pair(hub, bi.ids[j]) for j in tail)
     return out
+
+
+def _bucket_neighbours(members: list[int], kind: str, cap: int) -> list[int]:
+    """Materiały kubełka indeksu do porównania z nowym materiałem — ta sama reguła co w _index_pairs:
+    kubełek ≤ cap → cały; większy → przesłanka silna: STRONG_BUCKET_MAX pierwszych (ze środkiem gwiazdy),
+    inny rodzaj: nic."""
+    uniq = sorted(set(members))
+    if len(uniq) <= cap:
+        return uniq
+    if kind in STRONG_KINDS:
+        return uniq[:STRONG_BUCKET_MAX]
+    return []
 
 
 def _bucket_pairs(bi: BaseIndex, buckets: Iterable[list[int]], cap: int) -> set[Pair]:
@@ -323,9 +368,10 @@ def candidate_pairs(features: Iterable[FeatureSet], ctx: LinkContext) -> set[Pai
         ids.sort()
         return set(combinations(ids, 2))
     bi = base_index(ctx)
+    keep_pos = {bi.pos[mid] for mid in ids} if len(ids) < len(ctx.ids) else None
     pairs: set[Pair] = set()
     generators: list[tuple[str, Callable[[], set[Pair]]]] = [
-        ("indeks wskaźników", lambda: _index_pairs(bi)),
+        ("indeks wskaźników", lambda: _index_pairs(bi, keep_pos)),
         ("MinHash LSH", lambda: _minhash_pairs(ctx, bi)),
         ("pHash", lambda: _hamming_pairs(bi.img_owner, bi.img_hash, PHASH_MAX, bi.ids)),
         ("SHA-256 / dHash", lambda: _bucket_pairs(bi, list(bi.sha.values()) + list(bi.dhash.values()), bi.df_cap)),
@@ -363,14 +409,11 @@ def neighbours(p: Prepared, ctx: LinkContext) -> set[str]:
     try:
         for kind in INDEX_KINDS:
             for v in p.ind.get(kind, ()):
-                members = bi.inv.get(_index_key(kind, v), [])
-                if len(members) <= cap:
-                    out.update(members)
+                key = _index_key(kind, v)
+                out.update(_bucket_neighbours(bi.inv.get(key, []), key[0], cap))
         if "cert_domain" in p.ind:  # domeny z certyfikatu nowego materiału vs domeny bazy
             for v in p.ind["cert_domain"]:
-                members = bi.inv.get(("domain", v), [])
-                if len(members) <= cap:
-                    out.update(members)
+                out.update(_bucket_neighbours(bi.inv.get(("domain", v), []), "domain", cap))
     except Exception as e:  # noqa: BLE001
         log.warning("Kandydaci (indeks) dla %s: %s", p.id, e)
     try:

@@ -1,4 +1,4 @@
-# Ślad Fejka — listy wyjątków: wartości wskaźników ZBYT CZĘSTE, by świadczyły o wspólnej kampanii.
+# Bloodhound — listy wyjątków: wartości wskaźników ZBYT CZĘSTE, by świadczyły o wspólnej kampanii.
 #
 # Moduł powiązań (slad/link) usuwa je z przesłanek albo mocno osłabia. Dwa materiały, które ładują jQuery
 # z jsDelivr, stoją za Cloudflare albo mają certyfikat Let's Encrypt, NIE są przez to powiązane — to tło

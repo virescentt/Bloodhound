@@ -13,6 +13,7 @@ _ROOT = str(Path(__file__).resolve().parents[1])
 if _ROOT not in sys.path:  # uruchomienie `pytest` bez instalacji pakietu i bez wspólnego conftest.py
     sys.path.insert(0, _ROOT)
 
+from slad.features.infra import fetch as fetch_mod  # noqa: E402
 from slad.features.infra.fetch import FetchResult, blocked_reason, fetch_bytes, fetch_chain  # noqa: E402
 from slad.settings import NetworkSettings  # noqa: E402
 
@@ -42,6 +43,13 @@ class Server:
     @property
     def urls(self) -> list[str]:
         return [str(r.url) for r in self.requests]
+
+
+@pytest.fixture(autouse=True)
+def fake_dns(monkeypatch):
+    """Bez prawdziwego DNS: blokada SSRF sprawdza adresy nazw — każda nazwa wskazuje tu adres publiczny."""
+    monkeypatch.setattr(fetch_mod, "resolve_addresses", lambda host: ["93.184.216.34"])
+    monkeypatch.setattr(fetch_mod, "_RESOLVE_CACHE", {})
 
 
 @pytest.fixture

@@ -1,4 +1,4 @@
-# Ślad Fejka — konfiguracja. Opis metody i uzasadnienie wag: docs/METODYKA.md
+# Bloodhound — konfiguracja. Opis metody i uzasadnienie wag: docs/METODYKA.md
 # Zmienne z .env (LLM_BASE_URL, LLM_API_KEY, LLM_MODEL, LLM_EXTRA_BODY, SLAD_OFFLINE, SLAD_WORKSPACE) nadpisują wartości.
 
 data_root: data

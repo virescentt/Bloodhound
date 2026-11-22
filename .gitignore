@@ -16,6 +16,8 @@ __pycache__/
 # Wyniki i pamięć podręczna (mogą zawierać materiały NASK)
 workspace/
 runs/
+# Eksporty grafu (Neo4j/GraphML/JSON) z danymi NASK — tylko lokalnie
+exports/
 .cache/
 # Modele pobierane skryptem (python -m slad models)
 models/*.onnx

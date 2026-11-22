@@ -139,6 +139,8 @@ RESERVED_TLDS: frozenset[str] = frozenset(
 
 _SCHEME_RE = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.\-]*://")
 _HOST_RE = re.compile(r"^[a-z0-9_](?:[a-z0-9_\-]{0,62})(?:\.[a-z0-9_](?:[a-z0-9_\-]{0,62}))*$")
+# część adresu IPv4 wg inet_aton: szesnastkowo, ósemkowo, dziesiętnie
+_IPV4_PART_RE = re.compile(r"^(?:0x[0-9a-f]*|0[0-7]*|[1-9][0-9]*)$")
 _DEFANG_RULES: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"^\s*h(?:xx|\*\*)p(s?)(?=(?::|\[:\])//)", re.I), r"http\1"),
     (re.compile(r"\[\s*\.\s*\]|\(\s*\.\s*\)|\{\s*\.\s*\}|\[dot\]|\(dot\)|\{dot\}", re.I), "."),
@@ -183,8 +185,27 @@ def _to_ascii(host: str) -> str | None:
         return None
 
 
+def _ipv4_shorthand(host: str) -> str | None:
+    """Liczbowy zapis IPv4 wg reguł ``inet_aton`` (1–4 części dziesiętne, ósemkowe ``0…`` lub szesnastkowe ``0x…``:
+    ``127.1``, ``0x7f.1``, ``2130706433``) → postać kanoniczna ``127.0.0.1``. Resolver systemu traktuje takie
+    zapisy jak adres IP, więc blokada adresów prywatnych musi widzieć je tak samo. Inny tekst → None."""
+    parts = host.split(".")
+    if len(parts) > 4 or not all(_IPV4_PART_RE.match(p) for p in parts):
+        return None
+    nums = [int(p[2:] or "0", 16) if p.startswith("0x") else int(p, 8 if p.startswith("0") else 10) for p in parts]
+    *head, last = nums
+    bits = 8 * (4 - len(head))  # ostatnia część wypełnia pozostałe bity adresu
+    if any(n > 255 for n in head) or last >= 1 << bits:
+        return None
+    value = 0
+    for n in head:
+        value = value << 8 | n
+    return str(ipaddress.IPv4Address(value << bits | last))
+
+
 def clean_host(host: str | None) -> str | None:
-    """Host → małe litery, bez kropki końcowej, IDN jako punycode; IP w postaci kanonicznej; śmieci → None."""
+    """Host → małe litery, bez kropki końcowej, IDN jako punycode; IP w postaci kanonicznej (także zapis skrócony
+    ``127.1`` / ``0x7f.1`` / ``2130706433``); śmieci → None."""
     if not host or not isinstance(host, str):
         return None
     host = host.strip().strip("[]").rstrip(".").lower()
@@ -194,6 +215,9 @@ def clean_host(host: str | None) -> str | None:
         return str(ipaddress.ip_address(host))
     except ValueError:
         pass
+    shorthand = _ipv4_shorthand(host)
+    if shorthand is not None:
+        return shorthand
     if not host.isascii():
         host = _to_ascii(host)
         if not host:

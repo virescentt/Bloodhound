@@ -63,13 +63,22 @@ def process_dataset(
     """Zbiór → workspace: wczytanie, cechy (równolegle, przyrostowo), powiązania, kampanie, statystyki.
 
     Zwraca podsumowanie: liczby materiałów / cech / powiązań / kampanii, czasy i liczbę materiałów
-    z błędami. Błąd łączenia nie gubi policzonych cech — trafia do summary["link_error"].
+    z błędami. Błąd łączenia nie gubi policzonych cech — trafia do summary["link_error"]. Zbiór, którego
+    nie da się wczytać (ValueError: zły format, za duży plik), nie rzuca wyjątku: summary["load_errors"]
+    zawiera komunikat, materiałów jest 0, a workspace pozostaje bez zmian.
     """
     from slad.ingest import load_dataset
 
     t0 = time.perf_counter()
     path = Path(path)
-    materials, duplicate_ids = _unique_materials(load_dataset(path))
+    load_errors: list[str] = []
+    try:
+        loaded = load_dataset(path)
+    except ValueError as e:  # FileNotFoundError zostaje — brak ścieżki to błąd wywołania
+        log.warning("Nie wczytano zbioru %s: %s", path, e)
+        loaded = []
+        load_errors.append(str(e))
+    materials, duplicate_ids = _unique_materials(loaded)
     if limit is not None:
         materials = materials[: max(0, limit)]
     summary: dict[str, Any] = {
@@ -77,11 +86,14 @@ def process_dataset(
         "workspace": str(ws.root),
         "materials": len(materials),
         "duplicate_ids": duplicate_ids,
+        "load_errors": load_errors,
     }
     if not materials:
         log.warning("Zbiór %s nie zawiera materiałów — workspace bez zmian", path)
         summary.update(_feature_summary([], 0))
         summary.update(_link_summary([], [], 0.0))
+        if load_errors:
+            summary["error_samples"] = list(load_errors)  # CLI pokazuje próbki błędów; „errors” zostaje liczbą
         summary["time_s"] = round(time.perf_counter() - t0, 2)
         return summary
 

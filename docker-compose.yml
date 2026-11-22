@@ -1,4 +1,4 @@
-# Ślad Fejka — uruchomienie w Dockerze (CPU, bez GPU). Zbiory danych kładziemy w ./data, wyniki trafiają
+# Bloodhound — uruchomienie w Dockerze (CPU, bez GPU). Zbiory danych kładziemy w ./data, wyniki trafiają
 # do ./workspace (oba katalogi poza obrazem i poza repozytorium).
 #
 #   docker compose up --build app                          interfejs: http://localhost:8501
@@ -15,7 +15,7 @@ x-app: &app
     context: .
     args:
       WITH_CLIP: ${WITH_CLIP:-0}
-  image: slad-fejka:latest
+  image: bloodhound:latest
   env_file:
     - path: .env
       required: false
@@ -32,7 +32,8 @@ services:
     <<: *app
     command: ["python", "-m", "slad", "ui", "--host", "0.0.0.0", "--port", "8501", "--no-browser"]
     ports:
-      - "8501:8501"
+      # tylko ten komputer (127.0.0.1); bez tego panel bez logowania byłby widoczny w całej sieci lokalnej
+      - "127.0.0.1:8501:8501"
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8501/_stcore/health', timeout=4)"]
       interval: 30s

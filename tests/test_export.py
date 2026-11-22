@@ -17,6 +17,7 @@ if _ROOT not in sys.path:  # uruchomienie `pytest` bez instalacji pakietu i bez 
     sys.path.insert(0, _ROOT)
 
 from slad.export import build_graph, export_graphml, export_json, export_neo4j  # noqa: E402
+from slad.export.neo4j import _cell, _write_csv  # noqa: E402
 from slad.models import (  # noqa: E402
     Campaign,
     CampaignSummary,
@@ -245,3 +246,13 @@ def test_export_with_real_indicator_module(tmp_path):
     assert {p.name for p in written} == NEO4J_FILES
     kinds = {r["kind"] for r in read_csv(tmp_path / "neo4j" / "nodes_indicators.csv")}
     assert "tracker_id" in kinds or "domain" in kinds
+
+
+def test_csv_text_starting_with_formula_char_is_escaped(tmp_path):
+    assert _cell('=HYPERLINK("x")') == '\'=HYPERLINK("x")'
+    assert _cell("@admin") == "'@admin" and _cell("+48 600") == "'+48 600"
+    assert _cell(["=cmd", "ok"]) == "'=cmd|ok"  # listy: escapowany jest cały tekst komórki
+    assert _cell("zwykły tekst") == "zwykły tekst" and _cell("a=b") == "a=b"
+    assert _cell(12.5) == 12.5 and _cell(-3) == -3  # liczby zostają liczbami
+    path = _write_csv(tmp_path / "f.csv", ["a", "b"], [['=HYPERLINK("x")', 12.5]])
+    assert read_csv(path) == [{"a": '\'=HYPERLINK("x")', "b": "12.5"}]

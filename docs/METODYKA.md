@@ -1,4 +1,4 @@
-# Metodyka — Ślad Fejka
+# Metodyka — Bloodhound
 
 > Jak z pojedynczych podejrzanych reklam powstają kampanie: jakie cechy pozyskujemy i skąd, jak liczymy podobieństwo dwóch materiałów, jak grupujemy je w kampanie i jak przypisujemy nowy materiał.
 > Każde powiązanie ma listę **przesłanek** (co jest wspólne i z jaką wagą) — wynik jest zawsze wyjaśnialny.
@@ -55,7 +55,7 @@ LLM (dowolne API zgodne z OpenAI, np. lokalna Ollama) jest **opcjonalny**: uzupe
 | DNS | A/AAAA, CNAME, NS, MX | hosting |
 | IP → ASN | Team Cymru (DNS), RDAP IP | sieć hostingu (słaba przesłanka) |
 | RDAP domeny | rejestrator, data rejestracji | domeny rejestrowane hurtowo |
-| TLS | odcisk certyfikatu, SAN, wystawca | wspólny certyfikat = wspólny operator |
+| TLS | odcisk certyfikatu, SAN, wystawca | wspólny certyfikat = wspólny operator (oprócz certyfikatów hostingu/CDN: Cloudflare, wildcard albo > 10 różnych domen w SAN — te pomijamy) |
 | crt.sh (opcja) | inne domeny z Certificate Transparency | rotowane domeny kampanii |
 
 Bezpieczeństwo i odporność: pobieramy wyłącznie HTML (bez JavaScriptu i plików wykonywalnych), z limitem rozmiaru i czasu; nie odpytujemy adresów prywatnych ani domen zarezerwowanych; nie pobieramy stron platform (Facebook, TikTok…) — ich szablon i favicona połączyłyby wszystko; rozwijamy przekierowania platform (`l.facebook.com/l.php?u=`). **Strony generyczne** (HTTP ≥ 400, parking domeny, zawieszone konto, challenge Cloudflare, ostrzeżenie o phishingu) nie dają cech treści — ich szablon należy do hostingu, nie do operatora. Wszystkie odpowiedzi są w pamięci podręcznej (`workspace/<nazwa>/cache/`), więc powtórne uruchomienie działa offline. Gotowe dane infrastruktury z rekordu (`meta.infra`) i zapisane strony mają pierwszeństwo przed pobraniem na żywo.
@@ -68,7 +68,7 @@ Wynik pary to **suma wag przesłanek**; waga ≈ log-iloraz szans „ta sama kam
 
 | Poziom | Rodzaje (waga bazowa) | Zasada |
 |---|---|---|
-| **silne** — identyfikatory operatora i ta sama treść | portfel krypto 7 · tracker / piksel 6 · telefon 6 · e-mail 6 · IBAN 6 · Telegram 5 · WhatsApp 5 · certyfikat TLS 5 · domena docelowa 5 · skrócony link 5 · domena z certyfikatu 4 · tekst niemal identyczny 5 · ta sama grafika (pHash Δ ≤ 6) 5 · identyczny HTML | jedna wystarcza do powiązania |
+| **silne** — identyfikatory operatora i ta sama treść | portfel krypto 7 · tracker / piksel 6 · telefon 6 · e-mail 6 · IBAN 6 · Telegram 5 · WhatsApp 5 · certyfikat TLS 5 · domena docelowa 5 · skrócony link 5 · domena z certyfikatu 4 · tekst niemal identyczny 5 (gdy nie jest szablonem: tekst obecny w > 20% zbioru i > 5 materiałach spada do średnich) · ta sama grafika (pHash Δ ≤ 6) 5 · identyczny HTML | jedna wystarcza do powiązania |
 | **średnie** | favicona 4 · adres formularza 4 · host 3 · domena pośrednia 3 · domena skryptów 3 · ID oferty CPA 3 · szablon DOM 3 · podobny tekst 3 · IP 2.5 · tytuł 2 · zestaw pól formularza 2 | wymagają przesłanki silnej albo ≥ 2 różnych rodzajów średnich |
 | **miękkie** | twarz 4 · CLIP 3 · osoba 2 · rejestrator + data ±3 dni 1.5 · serwer DNS 1.5 · marka 1 · narracja 1 · ASN 0.5 · słowa kluczowe ≤ 1 | nigdy same nie łączą; łącznie ograniczone |
 
@@ -76,7 +76,7 @@ Wagi cech ciągłych zależą od podobieństwa (np. pHash: 5 × (1 − Δ/12); t
 
 ### 3.2 Ważenie rzadkością
 
-Wartość wspólna dla dużej części zbioru to „tło internetu” (Cloudflare, popularny DNS, domyślna favicona hostingu, skracacz), a nie ślad operatora. Waga przesłanki jest mnożona przez współczynnik rzadkości `r = (ln(1 + n/df) / ln(1 + n/free))²` (min. 0.05; `r = 1` dla `df ≤ free`), gdzie `df` — liczba materiałów z tą wartością, `n` — wielkość zbioru, `free` — próg bez kary zależny od rodzaju: identyfikatory operatora do 35% zbioru (ich częstość odzwierciedla wielkość kampanii), domena docelowa do 25%, pozostałe do 10% (maks. 50 materiałów). Dla cech ciągłych (obraz, szablon DOM) rzadkość wynika z **gęstości sąsiedztwa**: ile innych materiałów ma obraz / szablon w promieniu Δ ≤ 6 — wspólny układ zrzutów ekranu platformy waży mało. Niezależnie od statystyk listy `config/stoplists.yaml` usuwają wartości zawsze częste (CDN-y, wielkie platformy, publiczne skracacze, wystawcy certyfikatów, standardowe pola formularzy).
+Wartość wspólna dla dużej części zbioru to „tło internetu” (Cloudflare, popularny DNS, domyślna favicona hostingu, skracacz), a nie ślad operatora. Waga przesłanki jest mnożona przez współczynnik rzadkości `r = (ln(1 + n/df) / ln(1 + n/free))²` (min. 0.05; `r = 1` dla `df ≤ free`), gdzie `df` — liczba materiałów z tą wartością, `n` — wielkość zbioru, `free` — próg bez kary zależny od rodzaju: identyfikatory operatora do 35% zbioru (ich częstość odzwierciedla wielkość kampanii), domena docelowa do 25%, pozostałe do 10% (maks. 50 materiałów). Dla cech ciągłych (obraz, szablon DOM, a także niemal identyczny tekst) rzadkość wynika z **gęstości sąsiedztwa**: ile innych materiałów ma obraz / szablon w promieniu Δ ≤ 6 — wspólny układ zrzutów ekranu platformy waży mało. Niezależnie od statystyk listy `config/stoplists.yaml` usuwają wartości zawsze częste (CDN-y, wielkie platformy, publiczne skracacze, wystawcy certyfikatów, standardowe pola formularzy).
 
 ### 3.3 Reguły ochronne (przeciw fałszywym połączeniom)
 
@@ -93,21 +93,21 @@ Trzy uzupełniające się miary: (1) Jaccard sygnatur **MinHash** (szyngle 3 sł
 
 ### 3.5 Relacja
 
-- **duplikat** — treść niemal identyczna we wszystkich grupach treści obecnych w obu materiałach (tekst: Jaccard ≥ 0.9 lub kosinus ≥ 0.98; obraz: ten sam plik albo pHash i dHash Δ ≤ 2);
+- **duplikat** — treść niemal identyczna we wszystkich grupach treści obecnych w obu materiałach (tekst: Jaccard ≥ 0.9 lub kosinus ≥ 0.98; obraz: ten sam plik albo pHash i dHash Δ ≤ 2); sama zgodność tekstu, bez obrazu ani rzadkiego twardego wskaźnika, duplikatem nie jest;
 - **wariant** — wynik ≥ 7 (np. ta sama kampania, inna kreacja / domena z rotacji);
 - **powiązany** — wynik ≥ 4 (próg powiązania).
 
-Wysoki wynik z samej wspólnej infrastruktury to wariant, nie duplikat.
+Wysoki wynik z samej wspólnej infrastruktury to wariant, nie duplikat. Tekst liczy się jako jeden kanał (MinHash i TF-IDF razem), więc sam tekst nie spełnia reguły „dwie średnie przesłanki”.
 
 ### 3.6 Skalowalność — kandydaci
 
-Do 400 materiałów porównujemy wszystkie pary. Powyżej — tylko kandydatów z: indeksu odwrotnego wskaźników (z pominięciem wartości bardzo częstych), MinHash LSH, dokładnego wyszukiwania Hamminga pHash ≤ 10 i simhash DOM ≤ 6 (numpy, popcount), najbliższych twarzy i sąsiadów TF-IDF. Pomiar: budowa powiązań dla 3 000 materiałów ≈ 3 s, 10 000 ≈ 9 s (CPU); analiza nowego materiału na bazie 3 000 — ≈ 20 ms po pierwszym wczytaniu. Najdroższy etap to OCR zrzutów (wykonywany raz, wynik w cache).
+Do 400 materiałów porównujemy wszystkie pary. Powyżej — tylko kandydatów z: indeksu odwrotnego wskaźników (wartości bardzo częste pomijamy, z wyjątkiem silnych identyfikatorów operatora — telefon, e-mail, tracker, portfel, Telegram, WhatsApp, IBAN, short link, domena i odcisk certyfikatu: takie wartości nigdy nie są pomijane; wspólny identyfikator łączy każdego członka z pierwszym członkiem grupy, a w grupach powyżej 400 członków nie porównujemy wszystkich par), MinHash LSH, dokładnego wyszukiwania Hamminga pHash ≤ 10 i simhash DOM ≤ 6 (numpy, popcount), najbliższych twarzy i sąsiadów TF-IDF. Pomiar: budowa powiązań dla 3 000 materiałów ≈ 3 s, 10 000 ≈ 9 s (CPU); analiza nowego materiału na bazie 3 000 — ≈ 20 ms po pierwszym wczytaniu. Najdroższy etap to OCR zrzutów (wykonywany raz, wynik w cache).
 
 ## 4. Grupowanie w kampanie (`slad/link/cluster.py`)
 
 1. Graf: węzły = materiały, krawędzie = powiązania ≥ próg „powiązany” (waga = wynik).
 2. Spójne składowe to kandydaci na kampanie.
-3. Składowe > 6 węzłów są dzielone algorytmem **Louvain** (deterministycznie) — przeciw „łańcuchowaniu”, gdy jedno słabe powiązanie skleiłoby dwie kampanie; duplikaty nigdy nie są rozdzielane.
+3. Składowe > 6 węzłów są dzielone algorytmem **Louvain** (deterministycznie) — przeciw „łańcuchowaniu”, gdy jedno słabe powiązanie skleiłoby dwie kampanie; duplikaty nie są rozdzielane, chyba że opierają się wyłącznie na tekście.
 4. Części są ponownie łączone, gdy łączy je gęsta sieć powiązań (≥ 30% par) albo ≥ 2 silne powiązania — Louvain nie może rozbić wariantów jednej kampanii; pojedyncze materiały wracają do swojej części.
 5. Kampania dostaje nazwę po polsku (osoba lub marka · narracja · domena docelowa), spójność (średni wynik powiązań), najczęstsze osoby / marki / narracje / domeny / wskaźniki, okres aktywności i **kluczowe przesłanki**. Identyfikatory kampanii są stabilne między przeliczeniami (K003 pozostaje K003 po dodaniu materiału).
 
@@ -131,7 +131,7 @@ Cechy nowego materiału są porównywane z kandydatami z bazy. Wynik kampanii = 
 | brak obrazu / tekstu / URL | porównanie na cechach dostępnych w obu materiałach; `coverage` powiązania pokazuje część wspólnych grup |
 | martwa strona, błąd DNS, 404 | wpis w `errors`, strona generyczna bez cech treści; domena i łańcuch z wejścia nadal porównywane |
 | sam zrzut vs pełny rekord | OCR + pHash + porównanie kanałami treści |
-| dokładny duplikat (repost) | relacja „duplikat”; duplikaty nigdy nie są rozdzielane przy grupowaniu |
+| dokładny duplikat (repost) | relacja „duplikat”; duplikaty nie są rozdzielane przy grupowaniu (z wyjątkiem opartych tylko na tekście) |
 | różne formaty zbioru | automatyczne rozpoznanie formatu i kolumn (rozdz. 2.1) |
 | brak sieci | `--offline`: dane z rekordu, zapisane strony i cache |
 

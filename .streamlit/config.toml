@@ -1,4 +1,4 @@
-# Ślad Fejka — konfiguracja interfejsu Streamlit (czytana z katalogu, z którego uruchamiamy `streamlit run`).
+# Bloodhound — konfiguracja interfejsu Streamlit (czytana z katalogu, z którego uruchamiamy `streamlit run`).
 
 [theme]
 base = "light"

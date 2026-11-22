@@ -1,4 +1,4 @@
-"""Ślad Fejka — interfejs graficzny (Streamlit).
+"""Bloodhound — interfejs graficzny (Streamlit).
 
 Uruchomienie z katalogu repozytorium:   streamlit run slad/ui/app.py
 Katalog roboczy: zmienna SLAD_WORKSPACE albo ``workspace`` z config/settings.yaml; w panelu bocznym
@@ -10,6 +10,7 @@ wyłącza tylko odpowiednią funkcję, a nie cały interfejs.
 
 from __future__ import annotations
 
+import base64
 import functools
 import hashlib
 import html as _html
@@ -57,13 +58,35 @@ _CSS = """
 </style>
 """
 
-_LOGO = """<svg xmlns="http://www.w3.org/2000/svg" width="236" height="40" viewBox="0 0 236 40">
-<g stroke="#898781" stroke-width="2"><line x1="11" y1="27" x2="27" y2="11"/><line x1="27" y1="11" x2="35" y2="29"/>
-<line x1="11" y1="27" x2="35" y2="29" stroke-dasharray="3 3"/></g>
-<circle cx="11" cy="27" r="6" fill="#2a78d6"/><circle cx="27" cy="11" r="6" fill="#eb6834"/>
-<circle cx="35" cy="29" r="6" fill="#1baf7a"/>
-<text x="50" y="27" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="20" font-weight="700"
-fill="#0b0b0b">Ślad Fejka</text></svg>"""
+_ASSETS = Path(__file__).resolve().parent / "assets"
+_AVATAR = _ASSETS / "bloodhound_64.png"  # avatar projektu (logo w panelu, ikona karty przeglądarki)
+
+
+@functools.lru_cache(maxsize=1)
+def _logo() -> str:
+    """Logo w panelu bocznym: avatar (osadzony jako data URI) + nazwa projektu."""
+    try:
+        img = base64.b64encode(_AVATAR.read_bytes()).decode("ascii")
+        avatar = f'<image x="0" y="0" width="40" height="40" href="data:image/png;base64,{img}"/>'
+    except OSError:
+        avatar = ""
+    return (
+        '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="40" viewBox="0 0 200 40">'
+        f"{avatar}"
+        '<text x="50" y="27" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="20" '
+        'font-weight="700" fill="#0b0b0b">Bloodhound</text></svg>'
+    )
+
+
+def _page_icon() -> Any:
+    """Ikona karty przeglądarki: avatar, a gdy pliku brak — emoji."""
+    try:
+        from PIL import Image
+
+        return Image.open(_AVATAR)
+    except Exception:  # noqa: BLE001 — ikona jest ozdobą
+        return "🐶"
+
 
 # ---------------------------------------------------------------- infrastruktura aplikacji
 
@@ -1030,7 +1053,8 @@ def page_material() -> None:
     with t_infra:
         _material_infra(m, fs)
     with t_raw:
-        st.json(m.model_dump(mode="json"), expanded=False)
+        # etykieta kampanii (Material.label) służy wyłącznie ewaluacji — nie pokazujemy jej w danych surowych
+        st.json(m.model_dump(mode="json", exclude={"label"}), expanded=False)
         if fs is not None:
             st.json(fs.model_dump(mode="json", exclude={"text": {"minhash"}}), expanded=False)
 
@@ -1317,15 +1341,23 @@ _EXPORTS: list[tuple[str, str, str, str, str]] = [
 ]
 
 
+_CSV_FORMULA_PREFIXES = ("=", "+", "-", "@", "\t", "\r")
+
+
+def _csv_safe_frame(df: pd.DataFrame) -> pd.DataFrame:
+    """Tekst od = + - @ w komórkach CSV (Excel) poprzedzamy apostrofem, tak jak w slad/export/neo4j.py (csv_safe)."""
+    return df.map(lambda v: "'" + v if isinstance(v, str) and v.startswith(_CSV_FORMULA_PREFIXES) else v)
+
+
 @st.cache_data(max_entries=16, show_spinner="Przygotowanie eksportu…")
 def _export_bytes(kind: str, root: str, sig: tuple) -> tuple[bytes | None, str]:
     try:
         if kind == "csv":
             b = C.load_bundle(root)
             frames = {
-                "kampanie.csv": C.campaigns_frame(b.campaigns),
-                "powiazania.csv": C.links_frame(b.links),
-                "przypisania.csv": C.assignments_frame(b),
+                "kampanie.csv": _csv_safe_frame(C.campaigns_frame(b.campaigns)),
+                "powiazania.csv": _csv_safe_frame(C.links_frame(b.links)),
+                "przypisania.csv": _csv_safe_frame(C.assignments_frame(b)),
             }
             return C.zip_frames(frames), ""
         from slad.store import Workspace
@@ -1445,11 +1477,11 @@ def page_export() -> None:
 
 
 def main() -> None:
-    st.set_page_config(page_title="Ślad Fejka", page_icon="🕵️", layout="wide", initial_sidebar_state="expanded")
+    st.set_page_config(page_title="Bloodhound", page_icon=_page_icon(), layout="wide", initial_sidebar_state="expanded")
     st.html(_CSS % {"ink": C.INK, "ink2": C.INK_2, "muted": C.INK_MUTED})
     st.html(f"<style>{C.EVIDENCE_CSS}</style>")
     try:
-        st.logo(_LOGO, size="large")
+        st.logo(_logo(), size="large")
     except Exception:  # noqa: BLE001 — logo jest ozdobą
         log.debug("Logo niedostępne", exc_info=True)
     cfg = _load_cfg()

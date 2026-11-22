@@ -1,7 +1,7 @@
 [project]
-name = "slad-fejka"
+name = "bloodhound"
 version = "0.1.0"
-description = "Ślad Fejka — od pojedynczych reklam do kampanii oszustw (HackNation 2026, NASK: Kolekcjoner Fejków)"
+description = "Bloodhound — od pojedynczych reklam do kampanii oszustw (HackNation 2026, NASK: Kolekcjoner Fejków)"
 requires-python = ">=3.13"
 
 [tool.ruff]

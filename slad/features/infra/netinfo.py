@@ -268,7 +268,7 @@ def _get_json(url: str, timeout: float, client: httpx.Client | None) -> tuple[An
 
 
 def to_iso(value: Any) -> str | None:
-    """Data z RDAP/WHOIS → ISO 8601 w UTC (``2025-10-01T12:00:00+00:00``); nieczytelna → None."""
+    """Data z RDAP → ISO 8601 w UTC (``2025-10-01T12:00:00+00:00``); nieczytelna → None."""
     if value is None:
         return None
     if isinstance(value, datetime):

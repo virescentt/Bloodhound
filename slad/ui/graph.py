@@ -89,7 +89,8 @@ def material_indicators(fs: FeatureSet | None) -> dict[str, set[str]]:
         return {}
     out: dict[str, set[str]] = defaultdict(set)
     inf, iocs = fs.infra, (fs.text.iocs or {})
-    out["tracker"].update(inf.tracker_ids)
+    # „tracker:…” (keitaro, binom…) to rodzaj oprogramowania, a nie operator — słaba przesłanka, bez węzła-wskaźnika
+    out["tracker"].update(v for v in inf.tracker_ids if not str(v).startswith("tracker:"))
     out["domain"].update(inf.domains)
     out["ip"].update(inf.ips)
     if inf.favicon_mmh3 is not None:

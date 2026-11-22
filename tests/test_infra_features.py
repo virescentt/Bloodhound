@@ -54,6 +54,7 @@ def no_real_network(monkeypatch):
     monkeypatch.setattr(httpx.HTTPTransport, "handle_request", deny)
     monkeypatch.setattr(socket, "create_connection", deny)
     monkeypatch.setattr(dns.resolver.Resolver, "resolve", deny)
+    monkeypatch.setattr(fetch_mod, "resolve_addresses", lambda host: ["93.184.216.34"])  # bez prawdziwego DNS
 
 
 class FakeNet:

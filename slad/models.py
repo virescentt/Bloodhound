@@ -1,4 +1,4 @@
-"""Model danych Śladu Fejka — wspólny kontrakt wszystkich modułów.
+"""Model danych Bloodhound — wspólny kontrakt wszystkich modułów.
 
 Przepływ:  Material ─► FeatureSet ─► Link (z przesłankami Evidence) ─► Campaign
                                       └─► Assignment (analiza nowego materiału)

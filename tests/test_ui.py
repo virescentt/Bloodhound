@@ -573,6 +573,28 @@ def test_build_graph_indicator_hubs(bundle: C.Bundle) -> None:
     assert [n["id"] for n in only_ip.nodes if n["id"].startswith("hub:")] == ["hub:ip:203.0.113.7"]
 
 
+def test_build_graph_skips_software_tracker_hubs() -> None:
+    tr = ["tracker:keitaro", "fbpixel:123456789012345"]
+    feats = {mid: FeatureSet(material_id=mid, infra=InfraFeatures(tracker_ids=tr)) for mid in ("m1", "m2")}
+    mats = {mid: Material(id=mid, source=SourceKind.TEXT, text="tekst") for mid in feats}
+    data = G.build_graph(mats, feats, [], [], hubs=True)
+    hubs = {n["id"] for n in data.nodes if n["id"].startswith("hub:")}
+    assert hubs == {"hub:tracker:fbpixel:123456789012345"}  # keitaro to rodzaj oprogramowania, nie wskaźnik
+
+
+def test_app_material_raw_tab_hides_label(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    ws = build_workspace(tmp_path / "ws")
+    _install_fakes(monkeypatch, [])
+    monkeypatch.setenv("SLAD_WORKSPACE", str(ws.root))
+    at = _apptest().run()
+    _goto(at, "material")
+    at.selectbox(key="material_pick").set_value("m1").run()
+    _no_errors(at)
+    payloads = [j.value for j in at.json]
+    assert payloads and not any("kampania-A" in p for p in payloads)  # Material.label tylko do ewaluacji
+    assert any('"source"' in p for p in payloads)  # dane surowe materiału nadal są widoczne
+
+
 def test_tooltip_is_plain_and_bounded() -> None:
     t = G.tooltip(["<a href='x'>link</a>", "linia\x00", *[f"l{i}" for i in range(30)]], max_lines=5)
     assert "href" not in t

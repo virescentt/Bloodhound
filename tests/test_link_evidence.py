@@ -375,7 +375,7 @@ def test_compare_never_crashes_on_broken_features():
     b = make("b", AD, images=[image("zzzz")])
     ctx = ctx_for(a, b)
     link = compare(a, b, ctx)  # tekst identyczny — powiązanie mimo uszkodzonych cech obrazu
-    assert link is not None and link.relation == Relation.DUPLICATE
+    assert link is not None and link.relation != Relation.DUPLICATE  # sam tekst (bez innego kanału) to nie duplikat
 
 
 def test_context_add_new_material_uses_fitted_index():

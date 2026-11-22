@@ -60,7 +60,15 @@ URL_LIST_NAMES = frozenset({"urls.txt", "links.txt", "url.txt", "link.txt", "lin
 IGNORED_STEMS = frozenset({"readme", "license", "licence", "changelog", "thumbs", "desktop", "metadata_schema"})
 SKIP_DIRS = frozenset({"__macosx", "node_modules", "__pycache__", "css", "js", "fonts", ".git"})
 EXTRACT_DIRNAME = ".slad_extracted"
-MAX_TEXT_BYTES = 2_000_000
+# Limity rozmiaru: odczyt zbioru nie może zjeść pamięci. Tekst TXT/LOG jest obcinany z ostrzeżeniem;
+# pozostałe rodzaje są odrzucane z komunikatem (obcięty CSV/JSON/EML/XLSX byłby uszkodzony).
+MAX_TEXT_BYTES = 2_000_000  # TXT/LOG: ponad tyle bajtów tekst jest obcinany
+MAX_TABLE_BYTES = 50_000_000  # CSV/TSV/JSON/JSONL: większy plik jest odrzucany
+MAX_MESSAGE_BYTES = 20_000_000  # EML i MHTML: większy plik jest odrzucany
+MAX_XLSX_BYTES = 100_000_000  # XLSX/XLSM/XLS: większy plik jest odrzucany
+MAX_SHEET_ROWS = 50_000  # arkusz z więcej wierszy lub kolumn (poniżej) jest odrzucany — skoroszyt ładuje się w całości
+MAX_SHEET_COLUMNS = 200
+MAX_EXTRACT_BYTES = 20_000_000  # plik pomocniczy zapisywany na dysk (obraz, HTML z rekordu lub MHTML, data: URI)
 MAX_DEPTH = 10
 EMPTY_VALUES = frozenset({"", "nan", "none", "null", "nil", "n/a", "na", "-", "--", "—", "brak", "brak danych", "?"})
 
@@ -829,14 +837,56 @@ def _as_list(v: Any, split: bool = True) -> list[str]:
 # ---------------------------------------------------------------- pliki pomocnicze
 
 
-def _read_text(path: Path, limit: int = MAX_TEXT_BYTES) -> str:
-    data = path.read_bytes()[:limit]
+def _size(n: int) -> str:
+    return f"{n / 1_000_000:g} MB" if n >= 1_000_000 else f"{n} B"
+
+
+def _decode(data: bytes) -> str:
     for enc in ("utf-8-sig", "cp1250"):
         try:
             return data.decode(enc)
         except UnicodeDecodeError:
             continue
     return data.decode("latin-1")
+
+
+def _read_text(path: Path, limit: int | None = None) -> str:
+    """Tekst pliku; czyta co najwyżej ``limit`` bajtów (domyślnie MAX_TEXT_BYTES), reszty nie wczytuje."""
+    with path.open("rb") as f:
+        return _decode(f.read(MAX_TEXT_BYTES if limit is None else limit))
+
+
+def _check_size(path: Path, cap: int) -> None:
+    """Odrzuca plik większy niż ``cap``; rozmiar sprawdzany przez stat, zanim cokolwiek zostanie wczytane."""
+    size = path.stat().st_size
+    if size > cap:
+        raise ValueError(f"plik {path.name} jest za duży ({_size(size)}; limit {_size(cap)})")
+
+
+def _read_capped(path: Path, cap: int) -> bytes:
+    _check_size(path, cap)
+    return path.read_bytes()
+
+
+def _read_table_text(path: Path) -> str:
+    return _decode(_read_capped(path, MAX_TABLE_BYTES))
+
+
+def _within(p: Path, root: Path) -> Path | None:
+    """Rozwiązana ścieżka (dowiązania też), o ile leży w korzeniu zbioru; inaczej None."""
+    try:
+        r = p.resolve()
+    except (OSError, RuntimeError):  # RuntimeError: pętla dowiązań
+        return None
+    return r if r.is_relative_to(root) else None
+
+
+def _ok_entry(p: Path, root: Path) -> bool:
+    """Plik zbioru: zwykły plik albo dowiązanie wskazujące do środka zbioru (dowiązanie na zewnątrz jest pomijane)."""
+    if not p.is_symlink() or _within(p, root) is not None:
+        return True
+    log.warning("Pominięto dowiązanie wskazujące poza zbiór: %s", p)
+    return False
 
 
 def _safe_name(s: str, n: int = 40) -> str:
@@ -846,19 +896,22 @@ def _safe_name(s: str, n: int = 40) -> str:
 class _Extractor:
     """Zapis plików pochodnych (obrazy osadzone w XLSX, HTML z MHTML / z komórki, data: URI).
 
-    Domyślnie ``<katalog źródła>/.slad_extracted/<nazwa>/``, gdy brak praw zapisu — katalog tymczasowy.
-    Nazwy zależą od treści, więc ponowne wczytanie daje te same ścieżki.
+    Domyślnie ``<katalog źródła>/.slad_extracted/<nazwa>/``. Gdy brak praw zapisu — nowy katalog
+    ``slad_extracted_*`` w katalogu tymczasowym (``tempfile.mkdtemp``, dostęp tylko dla właściciela).
+    Katalog tymczasowy NIE jest usuwany automatycznie — zostaje w katalogu tymczasowym systemu.
+    Nazwy plików zależą od treści, więc ponowne wczytanie daje te same nazwy; w katalogu tymczasowym
+    zmienia się tylko katalog, bo powstaje na nowo.
     """
 
     def __init__(self, anchor: Path):
         self.anchor = anchor
         self._dir: Path | None = None
+        self._tmp: Path | None = None
 
     def _fallback(self) -> Path:
-        h = hashlib.sha1(str(self.anchor).encode()).hexdigest()[:12]
-        d = Path(tempfile.gettempdir()) / "slad_extracted" / h
-        d.mkdir(parents=True, exist_ok=True)
-        return d
+        if self._tmp is None:
+            self._tmp = Path(tempfile.mkdtemp(prefix="slad_extracted_"))
+        return self._tmp
 
     def dir(self) -> Path:
         if self._dir is None:
@@ -872,6 +925,8 @@ class _Extractor:
         return self._dir
 
     def save(self, data: bytes, ext: str, hint: str) -> Path:
+        if len(data) > MAX_EXTRACT_BYTES:
+            raise ValueError(f"plik pomocniczy jest za duży ({_size(len(data))}; limit {_size(MAX_EXTRACT_BYTES)})")
         name = f"{_safe_name(hint)}-{hashlib.sha1(data).hexdigest()[:12]}{ext}"
         for attempt in range(2):
             p = (self.dir() if attempt == 0 else self._fallback()) / name
@@ -906,8 +961,9 @@ class _Resolver:
         "data",
     )
 
-    def __init__(self, base: Path):
+    def __init__(self, base: Path, root: Path | None = None):
         self.base = base
+        self.root = root or base  # korzeń zbioru: wskazany plik musi w nim leżeć (także po rozwiązaniu dowiązań)
         self._names: dict[str, list[Path]] | None = None
         self._stems: dict[str, list[Path]] = {}
         self._prefixes: dict[str, list[Path]] = {}
@@ -939,7 +995,10 @@ class _Resolver:
                 break
         self._names, self._stems, self._prefixes = names, stems, prefixes
 
-    def find(self, ref: str) -> Path | None:
+    def find(self, ref: str, rejected: list[str] | None = None) -> Path | None:
+        """Plik wskazany w rekordzie albo None. Ścieżka leżąca poza korzeniem zbioru (także przez dowiązanie)
+        nie jest czytana, a ``ref`` trafia do ``rejected``. Wyszukiwanie po samej nazwie działa dalej,
+        ale tylko w obrębie zbioru."""
         ref = ref.strip().strip("\"'")
         if not ref:
             return None
@@ -953,20 +1012,28 @@ class _Resolver:
             cands = [p] if p.is_absolute() else [self.base / p, *(self.base / sub / p.name for sub in self.SUBDIRS)]
             for c in cands:
                 try:
-                    if c.is_file():
-                        return c.resolve()
+                    if not c.is_file():
+                        continue
                 except OSError:
                     continue
+                inside = _within(c, self.root)
+                if inside is not None:
+                    return inside
+                if rejected is not None:
+                    rejected.append(ref)
         self._ensure()
         assert self._names is not None
         name = re.split(r"[\\/]", variants[-1])[-1].lower()
-        hits = self._names.get(name)
-        if hits:
-            return hits[0].resolve()
+        for h in self._names.get(name, []):
+            inside = _within(h, self.root)
+            if inside is not None:
+                return inside
         if "." not in name:
             for h in self._stems.get(name, []):
                 if h.suffix.lower() in IMAGE_EXTS | HTML_EXTS:
-                    return h.resolve()
+                    inside = _within(h, self.root)
+                    if inside is not None:
+                        return inside
         return None
 
     def by_id(self, mid: str, exts: frozenset[str]) -> list[Path]:
@@ -977,7 +1044,7 @@ class _Resolver:
             return []
         hits = [p for p in self._stems.get(key, []) if p.suffix.lower() in exts]
         hits += [p for p in self._prefixes.get(key, []) if p.suffix.lower() in exts and p not in hits]
-        return sorted({p.resolve() for p in hits})
+        return sorted({r for p in hits if (r := _within(p, self.root)) is not None})
 
 
 # ---------------------------------------------------------------- szkic materiału
@@ -1024,7 +1091,7 @@ class _Ctx:
 
     def resolver(self, base: Path) -> _Resolver:
         if base not in self.resolvers:
-            self.resolvers[base] = _Resolver(base)
+            self.resolvers[base] = _Resolver(base, self.root)
         return self.resolvers[base]
 
 
@@ -1307,10 +1374,14 @@ def _add_image_ref(d: _Draft, ref: str, ctx: _Ctx, base: Path, col: str) -> None
         if d.html is None:
             _set_html(d, ref, ctx, base, col)
         return
-    p = ctx.resolver(base).find(ref)
+    rejected: list[str] = []
+    p = ctx.resolver(base).find(ref, rejected)
+    if rejected:
+        d.warnings.append(f"odrzucono ścieżkę spoza katalogu zbioru: {ref}")
     if p is None:
-        d.meta.setdefault("missing_images", []).append(ref)
-        d.warnings.append(f"brak pliku obrazu: {ref}")
+        if not rejected:
+            d.meta.setdefault("missing_images", []).append(ref)
+            d.warnings.append(f"brak pliku obrazu: {ref}")
         return
     if p.suffix.lower() not in IMAGE_EXTS:
         d.warnings.append(f"plik nie jest obrazem: {p.name}")
@@ -1326,7 +1397,7 @@ def _set_html(d: _Draft, v: Any, ctx: _Ctx, base: Path, col: str) -> None:
     if head.startswith(("<!doctype", "<html")) or ("<" in head and "</" in s and "\n" in s.strip()):
         try:
             d.html = ctx.extractor.save(s.encode("utf-8"), ".html", d.id or "strona")
-        except OSError as e:
+        except (OSError, ValueError) as e:
             d.warnings.append(f"nie zapisano HTML z rekordu: {e}")
         return
     if s.lower().startswith(("http://", "https://")):  # adres zamiast pliku
@@ -1334,9 +1405,13 @@ def _set_html(d: _Draft, v: Any, ctx: _Ctx, base: Path, col: str) -> None:
         if u:
             d.add_url(u)
         return
-    p = ctx.resolver(base).find(s)
+    rejected: list[str] = []
+    p = ctx.resolver(base).find(s, rejected)
+    if rejected:
+        d.warnings.append(f"odrzucono ścieżkę spoza katalogu zbioru: {s}")
     if p is None:
-        d.warnings.append(f"brak pliku HTML: {s}")
+        if not rejected:
+            d.warnings.append(f"brak pliku HTML: {s}")
         d.meta[_meta_key(col, d)] = s
         return
     if p.suffix.lower() in MHTML_EXTS:
@@ -1475,7 +1550,7 @@ def _grid_to_rows(grid: list[list[Any]]) -> tuple[list[str], list[dict[str, Any]
 
 
 def _read_csv(path: Path) -> list[list[str]]:
-    text = _read_text(path, limit=200_000_000)
+    text = _read_table_text(path)
     sep = "\t" if path.suffix.lower() == ".tsv" else _sniff_delimiter(text)
     csv.field_size_limit(min(sys.maxsize, 2**31 - 1))
     return [row for row in csv.reader(io.StringIO(text), delimiter=sep)]
@@ -1589,6 +1664,20 @@ class _Table:
 def _read_xlsx(path: Path, ctx: _Ctx) -> list[_Table]:
     from openpyxl import load_workbook
 
+    _check_size(path, MAX_XLSX_BYTES)
+    # Wymiary arkuszy w trybie tylko do odczytu (bez ładowania komórek), zanim skoroszyt wczyta się w całości.
+    # Tryb read_only NIE jest używany do wczytania: gubi scalone komórki, hiperłącza i obrazy osadzone.
+    probe = load_workbook(path, read_only=True)
+    try:
+        for ws in probe.worksheets:
+            rows, cols = ws.max_row or 0, ws.max_column or 0
+            if rows > MAX_SHEET_ROWS or cols > MAX_SHEET_COLUMNS:
+                raise ValueError(
+                    f"arkusz „{ws.title}” ma {rows} wierszy i {cols} kolumn "
+                    f"(limit {MAX_SHEET_ROWS} × {MAX_SHEET_COLUMNS})"
+                )
+    finally:
+        probe.close()
     wb = load_workbook(path, data_only=True)
     tables = []
     for ws in wb.worksheets:
@@ -1632,10 +1721,10 @@ def _read_table(path: Path, ctx: _Ctx) -> list[_Table]:
     """Plik rekordów → tabele (XLSX: jedna na arkusz). Wyjątki przekazywane wyżej."""
     ext = path.suffix.lower()
     if ext in (".jsonl", ".ndjson"):
-        rows, numbers = _parse_jsonl(_read_text(path, limit=2_000_000_000), path.name)
+        rows, numbers = _parse_jsonl(_read_table_text(path), path.name)
         return [_Table(path, rows, None, numbers)]
     if ext == ".json":
-        text = _read_text(path, limit=2_000_000_000)
+        text = _read_table_text(path)
         try:
             data = json.loads(text)
         except json.JSONDecodeError:
@@ -1653,8 +1742,12 @@ def _read_table(path: Path, ctx: _Ctx) -> list[_Table]:
     if ext == ".xls":
         import pandas as pd
 
+        _check_size(path, MAX_XLSX_BYTES)
         tables = []
-        for name, df in pd.read_excel(path, sheet_name=None, header=None, dtype=object).items():
+        sheets = pd.read_excel(path, sheet_name=None, header=None, dtype=object, nrows=MAX_SHEET_ROWS)
+        for name, df in sheets.items():
+            if len(df) >= MAX_SHEET_ROWS:
+                log.warning("%s: arkusz „%s” obcięto do %d wierszy", path.name, name, MAX_SHEET_ROWS)
             columns, rows, numbers = _grid_to_rows(df.where(df.notna(), None).values.tolist())
             if rows:
                 tables.append(_Table(path, rows, columns, numbers, str(name)))
@@ -1692,6 +1785,8 @@ def _kind(p: Path) -> str:
         return "json"
     if ext in TABLE_EXTS:
         return "table"
+    if ext == ".har":
+        return "har"
     return "other"
 
 
@@ -1732,6 +1827,8 @@ def _apply_text_file(d: _Draft, p: Path) -> None:
         _apply_eml(d, p)
         return
     text = _read_text(p)
+    if p.stat().st_size > MAX_TEXT_BYTES:
+        d.warnings.append(f"tekst w pliku {p.name} obcięto do {_size(MAX_TEXT_BYTES)}")
     if _is_url_list(p, text):
         for u in _url_lines(text)[0]:
             d.add_url(u)
@@ -1740,7 +1837,7 @@ def _apply_text_file(d: _Draft, p: Path) -> None:
 
 
 def _apply_eml(d: _Draft, p: Path) -> None:
-    msg = email.message_from_bytes(p.read_bytes()[:MAX_TEXT_BYTES], policy=email.policy.default)
+    msg = email.message_from_bytes(_read_capped(p, MAX_MESSAGE_BYTES), policy=email.policy.default)
     parts = []
     subject = msg.get("subject")
     if subject:
@@ -1774,7 +1871,7 @@ def _apply_eml(d: _Draft, p: Path) -> None:
 
 def _apply_mhtml(d: _Draft, p: Path, ctx: _Ctx) -> None:
     """Strona zapisana jako MHTML (Chrome „jeden plik”): część text/html → plik HTML, adres → url."""
-    msg = email.message_from_bytes(p.read_bytes(), policy=email.policy.default)
+    msg = email.message_from_bytes(_read_capped(p, MAX_MESSAGE_BYTES), policy=email.policy.default)
     loc = msg.get("Snapshot-Content-Location")
     for part in msg.walk():
         if part.get_content_type() == "text/html":
@@ -1794,7 +1891,7 @@ def _apply_mhtml(d: _Draft, p: Path, ctx: _Ctx) -> None:
 def _apply_link_file(d: _Draft, p: Path) -> None:
     try:
         if p.suffix.lower() == ".webloc":
-            data = plistlib.loads(p.read_bytes())
+            data = plistlib.loads(_read_capped(p, MAX_TEXT_BYTES))
             target = data.get("URL") if isinstance(data, dict) else None
         else:
             m = re.search(r"^URL=(.+)$", _read_text(p), re.M)
@@ -1805,6 +1902,15 @@ def _apply_link_file(d: _Draft, p: Path) -> None:
     u = normalize_url(target) if target else None
     if u:
         d.add_url(u)
+
+
+def _apply_har(d: _Draft, p: Path) -> None:
+    """Plik HAR (zapis ruchu sieciowego strony) → dane infrastruktury: przekierowania, hosty, trackery, TLS.
+    Dane z kolumn tabeli (wczytywane później) mają pierwszeństwo nad wyliczonymi z HAR."""
+    from slad.ingest.har import read_har
+
+    d.infra.update(read_har(p))
+    d.meta.setdefault("source_har", p.name)
 
 
 def _assemble(files: list[Path], base: Path, ctx: _Ctx, id_hint: str | None, rel_dir: str) -> _Draft:
@@ -1828,6 +1934,8 @@ def _assemble(files: list[Path], base: Path, ctx: _Ctx, id_hint: str | None, rel
                 _apply_text_file(d, f)
             elif k == "link":
                 _apply_link_file(d, f)
+            elif k == "har":
+                _apply_har(d, f)
             elif k in ("json", "table"):
                 for t in _read_table(f, ctx):
                     if t.rows:
@@ -1881,7 +1989,7 @@ def _scan_tree(root: Path) -> _Tree:
                 continue
             keep.append(n)
         dirnames[:] = keep
-        files[d] = [d / f for f in sorted(filenames) if _keep_file(f)]
+        files[d] = [d / f for f in sorted(filenames) if _keep_file(f) and _ok_entry(d / f, root)]
         subdirs[d] = [d / n for n in keep]
         order.append(d)
     has: dict[Path, bool] = {}

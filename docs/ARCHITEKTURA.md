@@ -1,4 +1,4 @@
-# Architektura Śladu Fejka
+# Architektura Bloodhound
 
 > Dokument jest jednocześnie **kontraktem między modułami**: sygnatury poniżej są wiążące.
 > Wspólny model danych: [`slad/models.py`](../slad/models.py), konfiguracja: [`slad/settings.py`](../slad/settings.py) + [`config/settings.yaml`](../config/settings.yaml).
@@ -18,7 +18,7 @@
    │    ├─ obraz         pHash/dHash/wHash/colorHash, kolory, twarze (YuNet + SFace) → tożsamość
    │    │                z bazy referencyjnej, opcjonalnie CLIP
    │    └─ infrastruktura łańcuch przekierowań, HTML (tytuł, trackery GA/GTM/Pixel, formularze,
-   │                     szablon DOM – simhash), favicon (mmh3), DNS, RDAP/WHOIS, IP/ASN, TLS, CT
+   │                     szablon DOM – simhash), favicon (mmh3), DNS, RDAP, IP/ASN, TLS, CT
    │
    ▼  link/              Link + Evidence  (każde powiązanie ma przesłanki i wagi)
    │    kandydaci (indeks odwrotny wskaźników + LSH MinHash + kubełki pHash) → porównanie par →
