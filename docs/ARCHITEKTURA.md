@@ -1,6 +1,6 @@
 # Architektura Bloodhound
 
-> Dokument jest jednocześnie **kontraktem między modułami**: sygnatury poniżej są wiążące.
+> Moduły, ich interfejsy i przepływ danych.
 > Wspólny model danych: [`slad/models.py`](../slad/models.py), konfiguracja: [`slad/settings.py`](../slad/settings.py) + [`config/settings.yaml`](../config/settings.yaml).
 > Metoda (cechy, podobieństwo, grupowanie, wagi): [METODYKA.md](METODYKA.md).
 
@@ -36,7 +36,7 @@
 
 | Plik | Publiczne API |
 |---|---|
-| `slad/models.py` | model danych (gotowy, zmiany tylko przez integrację) |
+| `slad/models.py` | model danych wspólny dla wszystkich modułów |
 | `slad/settings.py` | `load_settings(path=None, **overrides) -> Settings`, `ROOT` |
 | `slad/ingest/__init__.py` | `load_dataset(path, *, label_from_dir=False) -> list[Material]` (nieczytelny rekord → pominięty z ostrzeżeniem w `meta["ingest_warnings"]`) · `material_from_input(url=None, image_path=None, html_path=None, text=None) -> Material` (nigdy nie rzuca; id `new-…`) · `normalize_url`, `parse_date`, `map_column` |
 | `slad/ingest/loaders.py` | rozpoznawanie formatu: CSV / JSON / JSONL / XLSX / katalog obrazów / HTML / TXT / lista URL; mapowanie kolumn po synonimach (PL/EN) |
@@ -92,17 +92,9 @@ Indeks TF-IDF nie jest zapisywany na dysku (`text_index.pkl` z pierwotnego kontr
 
 ## Decyzje i kalibracja
 
-Stan po integracji modułów (21.11, wieczór). Wszystkie liczby: tryb offline (`--offline`), bez LLM (`--no-llm`), CPU, zbiory z `python -m slad synthetic` (ziarno 7 = zbiór demonstracyjny). Dane NASK nie były jeszcze dostępne — wagi i progi wymagają potwierdzenia na nich (rozdz. „Kalibracja na danych NASK” niżej).
+Wszystkie liczby: tryb offline (`--offline`), bez LLM (`--no-llm`), CPU, zbiory z `python -m slad synthetic` (ziarno 7 = zbiór demonstracyjny). Dane NASK nie były jeszcze dostępne — wagi i progi wymagają potwierdzenia na nich (rozdz. „Kalibracja na danych NASK” niżej).
 
-### Integracja (zmiany techniczne)
-
-- `pyproject.toml`: `pythonpath = ["."]` dla pytest (testy działają bez instalacji pakietu); ruff ignoruje UP042 — enumy `(str, Enum)` w `slad/models.py` są kontraktem (StrEnum zmieniłby `str()` / `format()` wartości).
-- `.gitignore`: pliki pochodne ingestu (`.slad_extracted/`), cache bez workspace (`.cache/`), cache galerii twarzy (`reference/faces/.gallery_cache.json` — embeddingi zdjęć referencyjnych), sekrety Streamlit. `.gitattributes`: `start.bat` z CRLF, `*.sh` z LF.
-- `config/settings.yaml`: wszystkie rodzaje przesłanek jawnie w `link.weights` (wcześniej część brała wartości domyślne z kodu — strona „Metodyka” w panelu ich nie pokazywała). Wartości bez zmian.
-- Panel → „Metodyka”: szkic `docs/METODYKA.md` (sam nagłówek) nie zastępuje już opisu wbudowanego; dokument uzupełniony pełnym opisem metody.
-- Odchylenia od pierwotnego kontraktu (wszystkie zgodne wstecz): dodatkowe argumenty nazwane (`build(dates, progress)`, `process_dataset(force, ctx, stage_progress)`, `analyze_new(add, ctx)`, `load_dataset(label_from_dir)`), `process_dataset` zwraca podsumowanie zamiast `None`, brak `text_index.pkl` (kontekst w pamięci), dodatkowe pliki `run.json` / `report.json`. Szczegóły w tabeli modułów wyżej.
-
-### Decyzje metodyczne podjęte przy integracji
+### Decyzje metodyczne
 
 1. **Porównanie tekstu kanałami (wejście / OCR, także na krzyż).** Test „nowy materiał spoza bazy” (warianty usunięte z bazy i analizowane od nowa) pokazał, że **sam tekst** reklamy nie był przypisywany do kampanii (0/7), a zrzut ekranu z lekko przyciętą kreacją dostawał wynik 3.99 < 4: tekst złączony (wejście + OCR + strona) pełnego rekordu „rozcieńczał” podobieństwo materiału częściowego (kosinus 0.6–0.87 dla tej samej treści). Dodano porównanie kanałami (`LinkContext.segment_sims`): najwyższe podobieństwo spośród par kanałów, waga liczona od długości dopasowanych kanałów. Kanały porównujemy na **zbiorach n-gramów znakowych 3–5 bez IDF** — z IDF jedna literówka w 90-znakowym tekście dawała kosinus 0.87 (unikalne n-gramy literówki mają najwyższą wagę, a szablon kampanii — niską). Wynik: sam tekst 0/7 → **7/7**, sam zrzut 8/8 (bez zmian), szumy 4/4 bez powiązań; zbiór ziarna 11: precyzja par 0.954 → 0.969, ARI 0.975 → 0.983.
 2. **Sprawdzenie „wspólny szablon grafiki”** (podobny obraz przy zupełnie innym tekście → połowa wagi) zostaje na kosinusie TF-IDF treści reklamy, nie na nowej mierze kanałów: n-gramy bez IDF mają wyższe tło dla tekstów niepowiązanych (0.1–0.3), co wyłączało zabezpieczenie i dało fałszywe powiązanie (szum ↔ kampania, ziarno 11).
@@ -111,7 +103,7 @@ Stan po integracji modułów (21.11, wieczór). Wszystkie liczby: tryb offline (
 5. **Wagi i progi bez zmian** (`related` 4, `variant` 7, `assign.min_score` 4). Zbiór syntetyczny jest dla obecnej metody łatwy (wszystkie metryki 1.0), więc dalsze strojenie byłoby dopasowaniem do generatora — wagi kalibrujemy dopiero na danych NASK.
 6. **LLM w przebiegach wsadowych wyłączony.** Lokalna Ollama (qwen3.5:9b, runner MLX) nie obsługuje `response_format`, więc klient przechodzi na JSON w treści promptu; czas: 8 materiałów w 105 s (≈ 13 s na materiał przy 4 wątkach), czyli ≈ 16 min dla 73 materiałów zbioru demonstracyjnego wobec 10 s bez LLM — powyżej limitu ~10 min. `python -m slad demo` ma więc LLM domyślnie wyłączony (`--llm` włącza). Przebiegi wsadowe i ewaluacja — `--no-llm` (heurystyki: słowniki, heurystyka osób, reguły narracji). LLM zalecany do analizy pojedynczego materiału albo z hostowanym endpointem (`.env`: `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL`); wyniki są w cache.
 
-7. **Zgłoszenia z przeglądu modułów, poprawione przy integracji:** (a) ten sam plik pustego / jednolitego obrazu (zaślepka, pusty zrzut — bez pHash) w dwóch materiałach nie jest już przesłanką „identyczny plik graficzny” (wcześniej waga 5.0 omijała ochronę pustych obrazów i rzadkość); (b) witryny na kreatorach stron z listy wyjątków (`oszustwo.wordpress.com`, `promo.tilda.ws`) nie są traktowane jak sama platforma — zachowują domenę jako przesłankę i cechy strony (trackery, IP, TLS); (c) panel pokazuje miniatury i ramki twarzy z orientacją z EXIF (zdjęcia z telefonu), zgodnie z układem współrzędnych detekcji.
+7. **Ochrona przed fałszywymi połączeniami:** (a) ten sam plik pustego / jednolitego obrazu (zaślepka, pusty zrzut — bez pHash) w dwóch materiałach nie jest już przesłanką „identyczny plik graficzny” (wcześniej waga 5.0 omijała ochronę pustych obrazów i rzadkość); (b) witryny na kreatorach stron z listy wyjątków (`oszustwo.wordpress.com`, `promo.tilda.ws`) nie są traktowane jak sama platforma — zachowują domenę jako przesłankę i cechy strony (trackery, IP, TLS); (c) panel pokazuje miniatury i ramki twarzy z orientacją z EXIF (zdjęcia z telefonu), zgodnie z układem współrzędnych detekcji.
 
 ### Wyniki końcowe (offline, bez LLM)
 
@@ -131,7 +123,7 @@ Stan po integracji modułów (21.11, wieczór). Wszystkie liczby: tryb offline (
 
 Wszystkie błędy na ziarnach 11 i 3 to **bliźniacze szumy generatora**: przy `noise > 12` szablony szumów są używane ponownie (np. „Marek Zawadzki zaprasza na kurs gotowania online…” w dwóch materiałach z różnymi etykietami `noise-01` / `noise-13`) — teksty niemal identyczne, więc połączenie jest zgodne z metodą, a błędne tylko względem etykiet generatora.
 
-### Kalibracja na danych NASK (do zrobienia po otrzymaniu zbioru)
+### Kalibracja na nowym zbiorze (np. NASK)
 
 1. `python -m slad ingest data/nask --show` — czy kolumny i obrazy zostały rozpoznane (`meta["ingest_warnings"]`).
 2. `python -m slad run data/nask` (z siecią, jeśli strony żyją) → `python -m slad eval` (gdy są etykiety; kampanie zakodowane nazwami katalogów: `load_dataset(..., label_from_dir=True)`).
